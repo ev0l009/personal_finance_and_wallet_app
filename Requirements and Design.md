@@ -18,7 +18,7 @@
 
 ## 2. Assumptions
 
-*   **Account Deactivation where appropriate:** Accounts can be deactivated or permanently hard-deleted from the database. In order to protect historical financial context and overall net worth calculations accounts will be tagged either `Active`, `Deactivated` or `Missing/Deleted` in transaction history.
+*   **Permanent Data Retention:** Accounts cannot be permanently hard-deleted from the database. They can only change states (Active to Inactive) to protect historical financial context and overall net worth calculations.
 
 *   **Local Single-User Context:** The CLI application runs entirely within a local terminal environment. It assumes a single-user execution scope where authentication and network synchronization are not required.
 
@@ -33,7 +33,7 @@
     *Resolution:* An **empty account** is defined as a structural state where an account holds a balance absolutely equivalent to 0 or nil, i.e the account has no cash in it. 
 
 - **Useful and concise overview of financial state**  
-    *Resolution:* This is interpreted to be a time-bound calculation displaying **Total Income**, **Total Expenses**, and **Net Savings Rate** for the current calendar month.
+    *Resolution:* This is interpreted to be a time-bound calculation displaying **Total Income**, **Total Expenses**, and **Net Savings Rate**, **Spending Category**, **Account Activity** for the relevant user specified time range.
 
 
 ## 4. Business Rules
@@ -62,6 +62,7 @@
 ## Architecture Proposal
 
 A Three-Tier Local Architecture optimized for an interactive CLI environment. By decoupling user prompts from core database states, we ensure that changes to the menu layout do not accidentally break financial math.
+
 ```text
  Interactive Text Menus  <--- (Runs the continuous 'while True' console loop)
             │
@@ -74,6 +75,7 @@ A Three-Tier Local Architecture optimized for an interactive CLI environment. By
             ▼
  3. Persistence Layer  <--- Handles atomic reads & writes to the local JSON file
 ```
+
 ### Architectural Component Responsibilities
 
 - **The Interface Tier (Parser/UI):** Handles all terminal interactions (print and input). It captures user commands, ensures text fields are populated, and displays formatted tabular summaries back to the console.
@@ -93,33 +95,31 @@ finance_ledger/
 │   └── ledger.json          # The localized JSON document storage file
 │
 ├── src/
-│   ├── __init__.py
 │   ├── main.py              # App entry point; hosts the main menu loop
 │   │
 │   ├── ui/
-│   │   ├── __init__.py
 │   │   ├── menus.py         # Sub-menus (Accounts menu, Transaction log display)
 │   │   └── validators.py    # Console string-to-number check utilities
 │   │
 │   ├── services/
-│   │   ├── __init__.py
 │   │   ├── ledger_service.py# Implements transfer, deposit, and validation math
 │   │   ├── models.py        # Python dataclass objects (Account, Transaction)
 │   │   └── exceptions.py    # Custom domain exceptions (e.g., InsufficientFundsError)
 │   │
 │   └── storage/
-│       ├── __init__.py
 │       └── file_manager.py  # Atomic JSON engine (safely handles load and save)
 │
 └── tests/
-    ├── __init__.py
     └── test_ledger.py       # Pytest suite validating business logic blocks
 ```
 
 
 ## Data Model Proposal
 
-The application will maintain its state inside a single localized document. We represent this via a JSON structure, paired with matching Python code representations (src/services/models.py) to enforce strong data typing.Proposed Storage Payload Blueprint (JSON Schema)Your JSON schema effectively links separate transaction operations back to their target account entities without duplicating raw state data.
+The application will maintain its state inside a single localized document. This is presented in a JSON structure, paired with matching Python code representations (src/services/models.py) to enforce strong data typing.
+
+### Proposed Storage Payload Blueprint (JSON Schema)
+The JSON schema effectively links separate transaction operations back to their target account entities without duplicating raw state data:
 
 ```json
 {
@@ -131,7 +131,7 @@ The application will maintain its state inside a single localized document. We r
             "balance": 125050,
             "is_active": true,
             "created_at": "2026-09-23T10:00:00Z"
-        },
+        }
     },
     "transactions": [
         {
@@ -139,9 +139,17 @@ The application will maintain its state inside a single localized document. We r
             "transaction_type": "transfer",
             "amount": 15000,
             "source_account_id": "acc_01J8Y",
-            "source_account_status": "Active",
             "destination_account_id": "acc_02K9X",
-            "destination_account_status": "Missing/Deleted",
+            "category": "savings_allocation",
+            "description": "Monthly savings transfer",
+            "timestamp": "2026-09-23T11:30:00Z"
+        },
+        {
+            "id": "tx_99A1Z",
+            "transaction_type": "deposit",
+            "amount": 10000,
+            "source_account_id": "acc_01J8Y",
+            "destination_account_id": "tx_99A1Z",
             "category": "savings_allocation",
             "description": "Monthly savings transfer",
             "timestamp": "2026-09-23T11:30:00Z"
@@ -151,15 +159,16 @@ The application will maintain its state inside a single localized document. We r
 ```
 
 ### Logical Data Definitions (Python Implementation Mapping)
-To manipulate this JSON structure safely, the backend service layer translates these elements into native `dataclass` objects. Crucially, the Minor Units (Integer) Pattern will be employed an as such all financial values are mapped to `int` types rather than `float` to avoid terminal rounding errors:
+
+To manipulate this JSON structure safely, the backend service layer translates these elements into native `dataclass` objects. Crucially, the Minor Units (Integer) Pattern will be employed and so all financial values are mapped to `int` types rather than `float` to avoid terminal rounding errors:
 
 - **Account Entity:** Tracks structural identity metadata (`id`, `name`, `account_type`), financial state (`balance`), and operational availability flags (`is_active`).
 
-- **Transaction Entity:** Unifies deposits, withdrawals, and transfers under one unified schema. For standard single-account transactions (like deposits or withdrawals), the unneeded relational ID slot is assigned a value of None.
+- **Transaction Entity:** Unifies deposits, withdrawals, and transfers under one unified schema. For standard single-account transactions (like deposits or withdrawals), the unneeded relational ID slot is assigned a value of None while for transfer transactions involving more than one account, the IDs of both sender and receiver must be provided.
 
 
 ## Persistence Decision
-We have selected local JSON file storage (data/ledger.json) as our persistence layer. It provides an optimal balance between simplicity and transparency for a standalone CLI tool.
+A local JSON file storage (data/ledger.json) shall act as our persistence layer. It provides an optimal balance between simplicity and transparency for a standalone CLI tool.
 
 To mitigate the inherent stability risks of flat-file storage, we enforce two engineering constraints:
 
@@ -178,13 +187,13 @@ To mitigate the inherent stability risks of flat-file storage, we enforce two en
 
 ### 2. High-Precision Data Serialization Pipeline
 
-**The Constraint:** JSON cannot natively interpret complex Python data objects like decimal.Decimal or datetime.datetime.
+**The Constraint:** JSON cannot natively interpret complex Python data objects like datetime.datetime.
 
 **The Solution:** The storage/file_manager.py component implements a bilateral serialization conversion pipeline:
 
-- **During Data Loading:** Strings representing numeric values (e.g., `"1250.50"`) and strings representing timestamps (e.g., `"2026-09-23T10:00:00Z"`) are parsed using Decimal() and datetime.fromisoformat() to prepare them for math logic operations.During 
+- **During Data Loading:** Strings representing timestamps (e.g., `"2026-09-23T10:00:00Z"`) are parsed using datetime.fromisoformat() to prepare them for operations. 
 
-- **Data Saving:** The structural objects are broken down back into base strings, ready to be dumped to flat JSON text lines.
+- **During Data Saving:** The structural objects are broken down back into base strings, ready to be dumped to flat JSON text lines.
 
 
 ## Error-Handling Strategy
@@ -240,7 +249,7 @@ An automated testing matrix using the pytest framework to systematically verify 
 
 - **Scope:** Verifies that our serialization pipeline translates data types smoothly.
 
-- **Execution:** Tests verify that when a data dictionary is written to a temporary test file, decimal.Decimal components are safely written out as flat strings, and that they read back into memory correctly with matching precision values.
+- **Execution:** Tests verify that when a data dictionary is written to a temporary test file, financial values are safely written out as integers, and that they read back into memory correctly with matching precision values.
 
 ### UI / Smoke Testing Tier (Terminal Simulation)
 - **Scope:** Simulates realistic user exploration sequences through the interactive prompts.
