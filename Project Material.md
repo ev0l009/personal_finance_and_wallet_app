@@ -1,735 +1,261 @@
-# PROJECT 1 — PERSONAL FINANCE & WALLET MANAGER
+# PERSONAL FINANCE & WALLET MANAGER
 
-**Sprint status:** 🟢 Active  
-**Developer:** You  
-**Role:** Senior Engineer / Mentor — me  
-**Objective:** Internalization + Principled Implementation
+## 1. Requirements Interpretation
 
-This is your first serious blank-project exercise.
+*   **Multi-Account Ledger:** The system must centralize management for various financial accounts (e.g., cash, banks, wallets), treating each account as an independent sub-ledger. It must handle account creation, provide lists of available accounts, give access to specific account and handle account deactivation or deletion.
 
-I am deliberately **not** giving you an architecture, class list, database schema, directory structure, or implementation recipe.
+*   **Atomic Mutations:** Income, expenses, and transfers must immediately trigger accurate mathematical changes to affected accounts, maintaining a transparent audit trail. Transfers by same user from one account to another account of theirs shouldn't within the application shouldn't affect net balance.
 
----
+*   **Dynamic Ledger Queries:** The historical logs must serve as a single source of truth, structured to support transaction tracking, multi-layered search and filtering, provide useful transaction details and concise overviews of overall financial state without mathematical discrepancies.
 
-# 1. The Client
+*   **Persistent Data Storage:** The application must ensure the persistence of its data, so users should continue their sessions anytime even after exit.
 
-You have been contracted to build a small personal finance application for an individual who wants to stop managing their finances through scattered notes and spreadsheets.
+*   **Intuitive CLI Interface:** The application's user interface should be intuitive and easy to use.
 
-They have money in several places:
+*   **Effective Error Handling & Robust Testing:** The application must be able to handle all relevant errors without affecting program flow and have a robust testing suite with adequate coverage of success paths, errors and edge cases.
 
-* a bank account
-* a savings account
-* cash
-* potentially other wallets/accounts later
+*   **Detailed and Concise Documentation:** The application's documentation must provide essential information that helps user and developer quickly get used to the application.
 
-They want one application where they can understand their financial position and record what happens to their money.
+## 2. Assumptions
 
-The client is not a programmer.
+*   **Account Deactivation where appropriate:** Accounts can be deactivated or permanently hard-deleted from the database. In order to protect historical financial context and overall net worth calculations accounts will be tagged either `Active`, `Deactivated` or `Missing/Deleted` in transaction history.
 
-They don't care whether you use classes, functions, JSON, SQLite, or anything else.
+*   **Local Single-User Context:** The CLI application runs entirely within a local terminal environment. It assumes a single-user execution scope where authentication and network synchronization are not required.
 
-They care that:
+* **Account Balance Limits:** The application shall also implement a reasonable limit on the number of accounts a user can have to prevent a possibly bloated database.
 
-> **Their financial records are correct, understandable, persistent, and usable.**
+* **Account Balance & Transaction Limits:** At the CLI phase, the accounts will have a globally set maximum account balance capacity. Relevant limits may also be placed on transaction amounts. This is to prevent bloated and overly-unrealistic transaction inputs.
 
----
 
-# 2. The Problem
+## 3. Identified Ambiguities and resolution
 
-The client needs to be able to answer questions such as:
+- **Deactivate only empty accounts**  
+    *Resolution:* An **empty account** is defined as a structural state where an account holds a balance absolutely equivalent to 0 or nil, i.e the account has no cash in it. 
 
-> How much money do I currently have?
+- **Useful and concise overview of financial state**  
+    *Resolution:* This is interpreted to be a time-bound calculation displaying **Total Income**, **Total Expenses**, and **Net Savings Rate** for the current calendar month.
 
-> How much is in my savings account?
 
-> What did I spend money on this month?
+## 4. Business Rules
 
-> How much did I spend on food?
+### Account Management Rules
 
-> What income did I receive in September?
+*   **Name Uniqueness:** Every account name must be unique (case-insensitive) to prevent user confusion during transfers.
 
-> What transactions occurred between September 1 and September 15?
+*   **String Length Constraints:** Account names must be between 4 and 20 characters long and cannot consist purely of whitespace.
 
-> I moved ₦100,000 from my bank account to savings. Did my total money change?
+*   **Initialization Boundary:** A new account defaults to an empty starting balance equivalent to 0 unless a custom, positive opening balance is explicitly declared.
 
-> How much money do I have across all my accounts?
+*   **Zero-Balance Deactivation:** An account can only be deactivated if is empty. If funds exist, the user must manually transfer them out first.
 
-> Can I find that ₦25,000 transaction from three weeks ago?
+*   **Visibility Filter:** Inactive accounts are excluded from everyday transaction choice menus but remain retrievable through an archival management menu.
 
-The application must allow them to answer these questions reliably.
+### Transaction & Balance Rules
 
----
+*   **Overdraft Protection:** A withdrawal transaction must be blocked with an error if the amount exceeds the account's available balance. Negative balances are prohibited.
 
-# 3. Functional Requirements
+*   **Self-Transfer Prevention:** The system must reject transactions where the source account ID matches the destination account ID.
 
-## 3.1 Accounts
+*   **Immutability Flag:** Once a transaction is saved to the log, it cannot be edited or modified. To reverse a mistake, a counter-balancing transaction must be entered.
 
-Users must be able to create and manage financial accounts.
 
-An account should have an identifiable name.
+## Architecture Proposal
 
-Examples:
+A Three-Tier Local Architecture optimized for an interactive CLI environment. By decoupling user prompts from core database states, we ensure that changes to the menu layout do not accidentally break financial math.
+```text
+ Interactive Text Menus  <--- (Runs the continuous 'while True' console loop)
+            │
+            ▼
+ 1. Command Parser     <--- Validates user menu inputs, numbers, and dates
+            │
+            ▼
+ 2. Service Layer      <--- Executes ledger math, transfers, & business rules
+            │
+            ▼
+ 3. Persistence Layer  <--- Handles atomic reads & writes to the local JSON file
+```
+### Architectural Component Responsibilities
+
+- **The Interface Tier (Parser/UI):** Handles all terminal interactions (print and input). It captures user commands, ensures text fields are populated, and displays formatted tabular summaries back to the console.
+
+- **The Logic Tier (Service):** The pure engine of the app. It manages incoming transaction logic, processes balance additions or deductions, evaluates custom business rule violations, and raises descriptive exceptions.
+
+- **The Storage Tier (Persistence):** Manages file I/O operations. It parses data back and forth between raw JSON text and strongly typed Python memory data blocks.
+
+## Proposed Project Structure
+
+This directory blueprint mirrors our three-tier architecture proposal. It serves as a working baseline layout and will adapt organically during the coding phase:
 
 ```text
-Main Bank
-Savings
-Cash
-Mobile Wallet
+finance_ledger/
+│
+├── data/
+│   └── ledger.json          # The localized JSON document storage file
+│
+├── src/
+│   ├── __init__.py
+│   ├── main.py              # App entry point; hosts the main menu loop
+│   │
+│   ├── ui/
+│   │   ├── __init__.py
+│   │   ├── menus.py         # Sub-menus (Accounts menu, Transaction log display)
+│   │   └── validators.py    # Console string-to-number check utilities
+│   │
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── ledger_service.py# Implements transfer, deposit, and validation math
+│   │   ├── models.py        # Python dataclass objects (Account, Transaction)
+│   │   └── exceptions.py    # Custom domain exceptions (e.g., InsufficientFundsError)
+│   │
+│   └── storage/
+│       ├── __init__.py
+│       └── file_manager.py  # Atomic JSON engine (safely handles load and save)
+│
+└── tests/
+    ├── __init__.py
+    └── test_ledger.py       # Pytest suite validating business logic blocks
 ```
 
-The system must support multiple accounts simultaneously.
 
-Users should be able to:
+## Data Model Proposal
 
-* create an account
-* view accounts
-* inspect an account
-* deactivate an account where appropriate
+The application will maintain its state inside a single localized document. We represent this via a JSON structure, paired with matching Python code representations (src/services/models.py) to enforce strong data typing.Proposed Storage Payload Blueprint (JSON Schema)Your JSON schema effectively links separate transaction operations back to their target account entities without duplicating raw state data.
 
-You must determine the precise business rules around account modification and deactivation.
+```json
+{
+    "accounts": {
+        "acc_01J8Y": {
+            "id": "acc_01J8Y",
+            "name": "Main Bank",
+            "account_type": "bank",
+            "balance": "1250.50",
+            "is_active": true,
+            "created_at": "2026-09-23T10:00:00Z"
+        }
+    },
+    "transactions": [
+        {
+            "id": "tx_99A1Z",
+            "transaction_type": "transfer",
+            "amount": "150.00",
+            "source_account_id": "acc_01J8Y",
+            "destination_account_id": "acc_02K9X",
+            "category": "savings_allocation",
+            "description": "Monthly savings transfer",
+            "timestamp": "2026-09-23T11:30:00Z"
+        }
+    ]
+}
+```
 
----
+### Logical Data Definitions (Python Implementation Mapping)
+To manipulate this JSON structure safely, the backend service layer translates these elements into native `dataclass` objects. Crucially, the Minor Units (Integer) Pattern will be employed and as such all financial values are mapped to `int` types rather than `float` to avoid terminal rounding errors:
 
-# 3.2 Income
+- **Account Entity:** Tracks structural identity metadata (`id`, `name`, `account_type`), financial state (`balance`), and operational availability flags (`is_active`).
 
-Users must be able to record income.
+- **Transaction Entity:** Unifies deposits, withdrawals, and transfers under one unified schema. For standard single-account transactions (like deposits or withdrawals), the unneeded relational ID slot is assigned a value of None.
 
-Example:
+
+## Persistence Decision
+We have selected local JSON file storage (data/ledger.json) as our persistence layer. It provides an optimal balance between simplicity and transparency for a standalone CLI tool.
+
+To mitigate the inherent stability risks of flat-file storage, we enforce two engineering constraints:
+
+### 1. The Atomic File Swap Engine (Anti-Corruption Pattern)
+
+**The Risk:**  
+
+- If a user closes their terminal shell or the computer suddenly crashes while the program is actively overwriting ledger.json, the file will break halfway, resulting in unreadable data loss.
+
+**The Mitigating Strategy:** The system executes an Atomic Write-Ahead Replace workflow using Python's native os.replace() function:
+
+- The updated data object is completely serialized and written out to a separate, temporary path (data/ledger.json.tmp).
+
+- Once Python confirms the temporary file write has finished successfully, the operating system executes a low-level pointer shift, instantly renaming the .tmp file over the production ledger.json file. This guarantees that a partial file write can never occur.
+
+
+### 2. High-Precision Data Serialization Pipeline
+
+**The Constraint:** JSON cannot natively interpret complex Python data objects like decimal.Decimal or datetime.datetime.
+
+**The Solution:** The storage/file_manager.py component implements a bilateral serialization conversion pipeline:
+
+- **During Data Loading:** Strings representing numeric values (e.g., `"1250.50"`) and strings representing timestamps (e.g., `"2026-09-23T10:00:00Z"`) are parsed using Decimal() and datetime.fromisoformat() to prepare them for math logic operations.During 
+
+- **Data Saving:** The structural objects are broken down back into base strings, ready to be dumped to flat JSON text lines.
+
+
+## Error-Handling Strategy
+To ensure a resilient user experience, the system enforces a strict "Catch and Recover" boundary pattern. The application isolates exceptions into three distinct technical layers, preventing hard crashes and code tracebacks from showing up in the user's terminal:
+
+### 1. UI / Validation Failures (The Gatekeeper Layer)
+
+- **When it triggers:** At the interactive command prompt, immediately upon reading keyboard input via input().
+
+- **Scenarios handled:**: A user inputs non-numeric characters (e.g., "abc") into an amount field, or types a menu number choice that does not exist on the current screen.
+
+- **Resolution action:**: The interface layer intercepts native Python exceptions like `ValueError`, completely halts downstream processing, prints a clear warning banner (e.g., ⚠️ Validation Error: Please enter a valid numeric amount), and smoothly re-renders the input loop.
+
+### 2. Domain / Business Rule Violations (The Logic Layer)
+
+- **When it triggers:** On application launch or during file-save sequences inside src/storage/file_manager.py.
+
+- **Scenarios handled:**: The local ledger.json file is physically altered outside the application, causing corrupt text formatting or syntax issues.
+
+- **Resolution action:**: The storage engine catches json.JSONDecodeError. Instead of crashing the whole executable, it initializes a clean, empty data structure ({"accounts": {}, "transactions": []}) to serve as a safety baseline and prints a diagnostic warning alert to the terminal screen.
+
+
+## Testing Strategy
+An automated testing matrix using the pytest framework to systematically verify our business rules and boundaries before product deployment.
 
 ```text
-Salary
-₦450,000
-Main Bank
-September 1, 2026
+ ┌──────────────────────┐
+ │  1. Unit Tests       │ <--- Tests core calculations and custom domain errors
+ └──────────────────────┘
+            │
+            ▼
+ ┌──────────────────────┐
+ │  2. Integration Tests│ <--- Tests the serialization conversion and file swapping
+ └──────────────────────┘
+            │
+            ▼
+ ┌──────────────────────┐
+ │  3. UI / Smoke Tests │ <--- Simulates realistic keyboard choices via monkeypatching
+ └──────────────────────┘
 ```
 
-The income must affect the relevant account's balance.
+### 1. Unit Testing Tier (Isolated Logic)
 
-It must also become part of the user's transaction history.
+- **Scope:** Focuses entirely on pure mathematical mutations and validation rules. It operates completely independent of files or terminal text.
 
----
+- **Execution:** We use static mock dataset fixtures in memory. We explicitly pass test parameters to check things like:
 
-# 3.3 Expenses
+* Ensuring a $50 deposit mathematically increments an account balance to exactly its expected target.
 
-Users must be able to record expenses.
+* Asserting that trying to trigger a transfer larger than an available balance correctly raises an `InsufficientFundsError`.
 
-Example:
+### 2. Integration Testing Tier (Storage Pipeline)
 
-```text
-Groceries
-₦35,000
-Food
-Main Bank
-September 4, 2026
-```
+- **Scope:** Verifies that our serialization pipeline translates data types smoothly.
 
-The expense must affect the relevant account's balance.
+- **Execution:** Tests verify that when a data dictionary is written to a temporary test file, decimal.Decimal components are safely written out as flat strings, and that they read back into memory correctly with matching precision values.
 
-It must become part of transaction history.
+### UI / Smoke Testing Tier (Terminal Simulation)
+- **Scope:** Simulates realistic user exploration sequences through the interactive prompts.
 
----
+- **Execution:** We use pytest’s native monkeypatch utility to override the standard builtins.input mechanism. This feeds sequential arrays of text lines (e.g., ["1", "acc_main", "acc_savings", "100.00"]) into the run loop, verifying that screens transition cleanly from option to option without hanging.
 
-# 3.4 Transfers
 
-Users must be able to move money between their own accounts.
+## Explicit Out-of-Scope Decisions
 
-Example:
+To protect the delivery timeline and maintain a highly optimized, lightweight terminal tool, the following capabilities are explicitly classified as out-of-scope for this version of the application:
 
-```text
-Main Bank → Savings
-₦100,000
-```
+- **Multi-User Context & Session Access Control:** The application operates as a single-user ledger. It features no login passwords or permission levels. Data safety is assumed to be managed entirely via local operating system file permissions.
 
-The system must correctly represent this as movement of existing money.
+- **Multi-Currency Exchanges & Foreign Conversion Engine:** All fields process uniform, static currency values. There are no integrations with live exchange rate APIs.
 
-It must **not** artificially report:
+- **Real-Time Network Persistence (Cloud Storage):** Data storage is completely isolated to a single, local file (data/ledger.json). External database connections (SQL Servers) or web API sync points are excluded.
 
-```text
-Income:   +₦100,000
-Expense:  -₦100,000
-```
+- **Rich Graphical Visualization (GUI Engines):** Financial summaries will render using text layouts or structured ASCII tables directly inside standard terminal output lines (stdout). Generating visual window windows, charts, or images is out of scope.
 
-The total amount of money owned by the user should remain unchanged by an internal transfer.
-
----
-
-# 3.5 Transaction History
-
-Users must be able to inspect historical financial activity.
-
-A transaction record should provide enough information to understand:
-
-* what happened
-* when it happened
-* how much money was involved
-* which account was involved
-* transaction type
-* category where applicable
-* useful descriptive information
-
-The history must remain useful when the number of transactions becomes large.
-
----
-
-# 3.6 Searching and Filtering
-
-Users need to find relevant transactions.
-
-The application must support filtering by appropriate criteria including:
-
-* date
-* date range
-* transaction type
-* account
-* category
-* minimum amount
-* maximum amount
-
-The user should be able to combine filters.
-
-For example:
-
-> Find expenses from Main Bank between September 1 and September 15 that were at least ₦20,000.
-
-You must decide how the application behaves when no results match.
-
----
-
-# 3.7 Balances
-
-Users must be able to determine:
-
-* an individual account balance
-* their total balance across accounts
-
-Example:
-
-```text
-Main Bank     ₦500,000
-Savings       ₦200,000
-Cash           ₦50,000
------------------------
-Total         ₦750,000
-```
-
-The figures must remain internally consistent.
-
----
-
-# 3.8 Financial Reports
-
-The application must provide useful summaries over a selected period.
-
-At minimum, users should be able to determine:
-
-* total income
-* total expenses
-* net change
-* spending by category
-* activity by account
-
-Transfers should not distort income and expense reporting.
-
----
-
-# 4. Validation & Business Rules
-
-The application must reject invalid operations.
-
-At minimum, consider:
-
-### Monetary values
-
-* zero amounts
-* negative amounts
-* invalid numeric input
-* extremely large values
-* precision issues
-
-### Accounts
-
-* nonexistent accounts
-* duplicate accounts
-* inactive accounts
-* invalid account references
-
-### Transfers
-
-* same source and destination
-* insufficient funds
-* invalid amount
-* nonexistent source
-* nonexistent destination
-* inactive accounts
-
-### Dates
-
-* malformed dates
-* invalid calendar dates
-* future dates
-
-**Important:**
-
-Some of these requirements deliberately contain business-rule ambiguity.
-
-For example:
-
-> Should future transactions be allowed?
-
-There is no predefined answer.
-
-You are expected to make a reasonable engineering/product decision, document it, and test it.
-
----
-
-# 5. Persistence
-
-The application must persist financial data.
-
-If the user:
-
-1. creates accounts,
-2. records transactions,
-3. closes the application,
-4. starts it again,
-
-their information must still exist.
-
-The application is initially local.
-
-There is no requirement for:
-
-* cloud synchronization
-* authentication
-* networking
-* banking APIs
-* multi-user support
-
-You must choose the persistence strategy.
-
-Your choice needs to be justified.
-
----
-
-# 6. Reliability Requirement
-
-Financial operations must preserve consistent state.
-
-Consider:
-
-```text
-Transfer ₦100,000
-Account A → Account B
-```
-
-What happens if part of the operation succeeds and another part fails?
-
-You don't need enterprise distributed systems.
-
-But your design should demonstrate that you have thought about **atomicity and data integrity**.
-
----
-
-# 7. User Interface
-
-The first release must have a usable CLI.
-
-The application should provide understandable workflows for:
-
-* account management
-* recording transactions
-* transfers
-* viewing balances
-* transaction history
-* searching/filtering
-* reports
-
-The user should not need to know Python to operate the application.
-
-A GUI is **not required for v1**.
-
-We will decide later whether Project 1 benefits sufficiently from one.
-
----
-
-# 8. Error Handling
-
-Normal user mistakes should not produce ugly application crashes.
-
-For example, entering an invalid amount should result in useful feedback rather than an unexplained traceback.
-
-However:
-
-> **Do not solve this by catching `Exception` everywhere.**
-
-Failures should be handled at sensible boundaries.
-
-Unexpected programming errors should not be silently swallowed.
-
----
-
-# 9. Testing
-
-The project must have an automated test suite.
-
-It should demonstrate confidence in:
-
-### Core behavior
-
-* account management
-* income
-* expenses
-* transfers
-* balances
-* transaction history
-* filtering
-* reporting
-* persistence
-
-### Invalid behavior
-
-* invalid amounts
-* invalid accounts
-* insufficient funds
-* invalid transfers
-* invalid dates
-* other relevant validation failures
-
-### Edge cases
-
-You are responsible for identifying additional edge cases.
-
-Do not limit your tests to the examples given in this specification.
-
----
-
-# 10. Documentation
-
-The project must include a useful README.
-
-It should explain:
-
-* what the application does
-* how to install it
-* how to run it
-* how to run tests
-* how persistence works
-* important assumptions
-* known limitations
-
-Important public behavior should also be appropriately documented in the code.
-
----
-
-# 11. Constraints
-
-For the initial release:
-
-### Required
-
-* Python
-* automated tests
-* static typing
-* persistent data
-* CLI
-* documentation
-
-### Not required
-
-* authentication
-* cloud services
-* networking
-* external banking APIs
-* multi-user support
-* machine learning
-* web deployment
-* complex infrastructure
-
-### Engineering principle
-
-Don't introduce technology simply because you know it exists.
-
-Every dependency and major architectural decision should have a reason.
-
----
-
-# 12. Acceptance Criteria
-
-The project cannot be considered complete until:
-
-### Functionality
-
-* [ ] Multiple accounts work.
-* [ ] Income can be recorded.
-* [ ] Expenses can be recorded.
-* [ ] Transfers work correctly.
-* [ ] Balances are correct.
-* [ ] Total balance is correct.
-* [ ] Transaction history works.
-* [ ] Search/filtering works.
-* [ ] Reports work.
-* [ ] Data survives application restart.
-
-### Reliability
-
-* [ ] Invalid operations are rejected.
-* [ ] User input errors are handled appropriately.
-* [ ] Financial state cannot easily become inconsistent through normal operations.
-* [ ] Transfers preserve correct financial state.
-
-### Engineering
-
-* [ ] Appropriate architecture.
-* [ ] Sensible responsibility boundaries.
-* [ ] Appropriate typing.
-* [ ] Appropriate exception handling.
-* [ ] Automated tests.
-* [ ] Useful documentation.
-* [ ] Maintainable code.
-* [ ] No significant unnecessary complexity.
-
-### User Experience
-
-* [ ] The CLI is understandable.
-* [ ] Normal workflows are reasonably convenient.
-* [ ] Errors are understandable.
-* [ ] The application gives useful feedback.
-
----
-
-# 13. Sprint Milestones
-
-We're going to use **five gates**.
-
-## GATE 1 — Requirements & Design
-
-Before implementation.
-
-You will submit:
-
-* requirements interpretation
-* assumptions
-* identified ambiguities
-* business rules you've chosen
-* architecture proposal
-* project structure
-* data model
-* persistence decision
-* error-handling strategy
-* testing strategy
-* explicit out-of-scope decisions
-
-### Assessment
-
-Your external reviewer must determine whether your design is:
-
-* coherent
-* appropriately scoped
-* internally consistent
-* testable
-* maintainable
-* appropriately simple
-
-**Do not begin serious implementation until this gate is passed.**
-
----
-
-# GATE 2 — Core Application
-
-Build the fundamental financial operations.
-
-At minimum:
-
-* accounts
-* income
-* expenses
-* transfers
-* balances
-* persistence
-
-### Submission
-
-Provide:
-
-* source code
-* tests
-* test results
-* current README
-* any relevant design changes
-
-### Assessment
-
-The reviewer evaluates:
-
-* correctness
-* architecture
-* domain modeling
-* state consistency
-* error handling
-* typing
-* testing quality
-
----
-
-# GATE 3 — Query & Reporting
-
-Add:
-
-* transaction history
-* filtering
-* searching
-* reports
-* useful summaries
-
-### Assessment
-
-Particular attention should go toward:
-
-* query design
-* correctness
-* edge cases
-* test quality
-* separation of responsibilities
-* usability
-
----
-
-# GATE 4 — Release Candidate
-
-The application should now feel like an actual product.
-
-Review:
-
-* CLI usability
-* validation
-* error messages
-* persistence reliability
-* documentation
-* test coverage
-* code quality
-* consistency
-
-Fix significant issues discovered during this phase.
-
----
-
-# GATE 5 — Final Engineering Review
-
-This is the serious assessment.
-
-The reviewer evaluates the entire project across:
-
-| Area            | Required                       |
-| --------------- | ------------------------------ |
-| Requirements    | Full compliance                |
-| Functionality   | Correct behavior               |
-| Architecture    | Appropriate design             |
-| Domain modeling | Sound representation           |
-| Error handling  | Deliberate and reliable        |
-| Typing          | Accurate and useful            |
-| Testing         | Meaningful behavioral coverage |
-| Persistence     | Reliable                       |
-| Documentation   | Developer/user usable          |
-| CLI             | Reasonably usable              |
-| Maintainability | Appropriate for scope          |
-| Complexity      | Justified                      |
-| Code quality    | Professional standard          |
-
-The reviewer should identify:
-
-* critical issues
-* major issues
-* moderate issues
-* minor issues
-* technical debt
-* strengths
-* recurring weaknesses
-* areas requiring remediation
-
----
-
-# 14. Assessment Submission Protocol
-
-For each gate, **do not just say "review my project."**
-
-Use the master assessment prompt we established earlier and append the relevant gate's requirements.
-
-Your submission should contain whatever artifacts the gate specifies.
-
-The external reviewer should iteratively challenge you:
-
-> Finding → Your reasoning → Hint → Your change → Re-review
-
-rather than simply dumping the answers on you.
-
----
-
-# 15. Assessment Debrief
-
-After you've passed a gate, bring the **assessment history** back here.
-
-I want to know:
-
-* what the reviewer found
-* what you initially got wrong
-* what you struggled to understand
-* how many iterations something required
-* what eventually clicked
-* what you fixed
-* what remains weak
-* what the reviewer identified as recurring behavior
-
-Especially preserve cases where you initially defended a decision and later changed your mind.
-
-That's valuable engineering-learning data.
-
----
-
-# 16. Definition of Done
-
-Project 1 is **not done** when:
-
-```text
-"Everything works."
-```
-
-It is done when you can reasonably demonstrate:
-
-> **I can explain what I built, why I designed it this way, demonstrate that it works, explain how it fails, show how I tested it, maintain it, and defend the important engineering decisions.**
-
-And the independent assessment agrees that the remaining issues are reasonable for the scope.
-
----
-
-# 17. Your First Deliverable
-
-**Stop here.**
-
-Do not start implementing yet.
-
-Your immediate task is **Gate 1 — Requirements & Design**.
-
-Prepare your Engineering Design Submission.
-
-I am intentionally not giving you:
-
-* classes
-* functions
-* modules
-* database schema
-* directory tree
-* design patterns
-* persistence implementation
-* CLI architecture
-
-Those are yours.
-
-Once your design is ready, **do not paste it here for me to approve**.
-
-Take it through the external assessment workflow using the assessment prompt we've established.
-
-Then bring the **assessment debrief and review history** back here.
-
-I'll use that to determine what we challenge next.
-
-**The project has officially begun.**
+- **Future-dated transactions**: This will not be implemented because this is primarily an offline CLI-based project and as such transactions cannot be scheduled at a future date.
