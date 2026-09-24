@@ -2,12 +2,19 @@
 
 ## 1. Requirements Interpretation
 
-*   **Multi-Account Ledger:** The system must centralize management for various financial mediums (e.g., cash, banks, wallets), treating each account as an independent sub-ledger.
+*   **Multi-Account Ledger:** The system must centralize management for various financial accounts (e.g., cash, banks, wallets), treating each account as an independent sub-ledger. It must handle account creation, provide lists of available accounts, give access to specific account and handle account deactivation or deletion.
 
-*   **Atomic Mutations:** Income, expenses, and transfers must immediately trigger accurate mathematical changes to affected accounts, maintaining a transparent audit trail.
+*   **Atomic Mutations:** Income, expenses, and transfers must immediately trigger accurate mathematical changes to affected accounts, maintaining a transparent audit trail. Transfers by same user from one account to another account of theirs shouldn't within the application shouldn't affect net balance.
 
-*   **Dynamic Ledger Queries:** The historical logs must serve as a single source of truth, structured to support transaction tracking, multi-layered filtering, real-time balance calculations, provide useful transaction details and concise overviews of overall financial state without mathematical discrepancies.
+*   **Dynamic Ledger Queries:** The historical logs must serve as a single source of truth, structured to support transaction tracking, multi-layered search and filtering, provide useful transaction details and concise overviews of overall financial state without mathematical discrepancies.
 
+*   **Persistent Data Storage:** The application must ensure the persistence of its data, so users should continue their sessions anytime even after exit.
+
+*   **Intuitive CLI Interface:** The application's user interface should be intuitive and easy to use.
+
+*   **Effective Error Handling & Robust Testing:** The application must be able to handle all relevant errors without affecting program flow and have a robust testing suite with adequate coverage of success paths, errors and edge cases.
+
+*   **Detailed and Concise Documentation:** The application's documentation must provide essential information that helps user and developer quickly get used to the application.
 
 ## 2. Assumptions
 
@@ -17,7 +24,7 @@
 
 * **Account Balance Limits:** The application shall also implement a reasonable limit on the number of accounts a user can have to prevent a possibly bloated database.
 
-* **Account Balance & Transaction Limits:** At the CLI phase, the accounts will have a globally set maximum account balance. Relevant limits may also be placed on transaction amounts. This is to prevent bloated and overly-unrealistic transaction inputs.
+* **Account Balance & Transaction Limits:** At the CLI phase, the accounts will have a globally set maximum account balance capacity. Relevant limits may also be placed on transaction amounts. This is to prevent bloated and overly-unrealistic transaction inputs.
 
 
 ## 3. Identified Ambiguities and resolution
@@ -39,7 +46,7 @@
 
 *   **Initialization Boundary:** A new account defaults to an empty starting balance equivalent to 0 unless a custom, positive opening balance is explicitly declared.
 
-*   **Zero-Balance Deactivation:** An account can only be deactivated if its balance is exactly 0.00. If funds exist, the user must manually transfer them out first.
+*   **Zero-Balance Deactivation:** An account can only be deactivated if is empty. If funds exist, the user must manually transfer them out first.
 
 *   **Visibility Filter:** Inactive accounts are excluded from everyday transaction choice menus but remain retrievable through an archival management menu.
 
@@ -121,18 +128,20 @@ The application will maintain its state inside a single localized document. We r
             "id": "acc_01J8Y",
             "name": "Main Bank",
             "account_type": "bank",
-            "balance": "1250.50",
+            "balance": 125050,
             "is_active": true,
             "created_at": "2026-09-23T10:00:00Z"
-        }
+        },
     },
     "transactions": [
         {
             "id": "tx_99A1Z",
             "transaction_type": "transfer",
-            "amount": "150.00",
+            "amount": 15000,
             "source_account_id": "acc_01J8Y",
+            "source_account_status": "Active",
             "destination_account_id": "acc_02K9X",
+            "destination_account_status": "Missing/Deleted",
             "category": "savings_allocation",
             "description": "Monthly savings transfer",
             "timestamp": "2026-09-23T11:30:00Z"
@@ -142,7 +151,7 @@ The application will maintain its state inside a single localized document. We r
 ```
 
 ### Logical Data Definitions (Python Implementation Mapping)
-To manipulate this JSON structure safely, the backend service layer translates these elements into native `dataclass` objects. Crucially, all financial values are mapped to `Decimal` types rather than `float` to avoid terminal rounding errors:
+To manipulate this JSON structure safely, the backend service layer translates these elements into native `dataclass` objects. Crucially, the Minor Units (Integer) Pattern will be employed an as such all financial values are mapped to `int` types rather than `float` to avoid terminal rounding errors:
 
 - **Account Entity:** Tracks structural identity metadata (`id`, `name`, `account_type`), financial state (`balance`), and operational availability flags (`is_active`).
 
