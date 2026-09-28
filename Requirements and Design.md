@@ -29,7 +29,29 @@
     *Resolution:* An **empty account** is defined as a structural state where an account holds a balance absolutely equivalent to 0 or nil, i.e the account has no cash in it. 
 
 - **Useful and concise overview of financial state**  
-    *Resolution:* This is interpreted to be a time-bound calculation displaying **Total Income**, **Total Expenses**, and **Net Savings Rate**, **Spending Category**, **Account Activity** for the relevant user specified time range.
+    *Resolution:*
+    ### Feature: Financial Overview & Audit Reporting
+
+    **Core Objective**
+
+    Provide users with a concise, time-bound overview of their financial health, detailing total income, total expenses, spending categories, and detailed account activity.
+
+    **Income & Expense Logic**
+
+    * **Inclusions:** Only deposits and withdrawals directly impact net balance calculations and are included in **Total Income** and **Total Expenses**.
+    * **Exclusions:** Internal transfer transactions are excluded from net income and expense calculations to prevent double-counting.
+
+    **Transfer Transaction Rules**
+
+    * **Account Tagging:** To ensure clear distinction from deposits or withdrawals, both source and destination accounts tied to a transfer are tagged as `transfer`.
+    * **Audit Trail:** Even though transfers do not alter aggregate net balance, they are fully recorded under **Account Activity** to maintain an accurate audit history.
+
+    **Report Generation Filters**
+    Reports use flexible filtering criteria to organize data, including:
+
+    * **Timeframes:** Dynamic ranges (e.g., *This Week*, *Last 7 Days*, *Last Month*).
+    * **Transaction Types:** *Deposits*, *Expenses*, or *Transfers*.
+    * **Categories:** Specific expense types.
 
 
 ## 4. Business Rules
@@ -219,6 +241,20 @@ To ensure a resilient user experience, the system enforces a strict "Catch and R
 
 - **Resolution action:**: The storage engine catches json.JSONDecodeError. Instead of crashing the whole executable, it initializes a clean, empty data structure ({"accounts": {}, "transactions": []}) to serve as a safety baseline and prints a diagnostic warning alert to the terminal screen.
 
+#### Possible exceptions list;
+
+- InsufficientFundsError - Raised when an account balance falls below the transaction amount.
+
+- NegativeAmountError - Raised when a negative value is provided for an amount field.
+
+- InvalidFieldAttributeError - Raised when invalid/insufficient characters are used and the field in question is shown for context
+
+- DuplicateAccountNameError - Raised when creating an account with same name as an already registered account
+
+- InterAccountTransferMismatchError - Raised when a transfer debits the source account but fails to credit the destination account.
+
+- DormantAccountError - Raised when attempting to log a transaction against an archive-only or closed financial account.
+
 ## Testing Strategy
 An automated testing matrix using the pytest framework to systematically verify our business rules and boundaries before product deployment.
 
@@ -257,7 +293,7 @@ An automated testing matrix using the pytest framework to systematically verify 
 ### 3. UI / Smoke Testing Tier (Terminal Simulation)
 - **Scope:** Simulates realistic user exploration sequences through the interactive prompts.
 
-- **Execution:** We use pytest’s native monkeypatch utility to override the standard builtins.input mechanism. This feeds sequential arrays of text lines (e.g., ["1", "acc_main", "acc_savings", "100.00"]) into the run loop, verifying that screens transition cleanly from option to option without hanging.
+- **Execution:** We use pytest’s native monkeypatch utility to override the standard builtins.input mechanism. This feeds sequential arrays of text lines (e.g., `["1", "acc_main", "acc_savings", "100.00"]`) into the run loop, verifying that screens transition cleanly from option to option without hanging.
 
 
 ## Explicit Out-of-Scope Decisions
@@ -288,7 +324,7 @@ class Transaction:
 ```
 to enforce immutability after validation and constructions (i.e. stops it from being changed after creation.).
 
-*Note on Frozen Dataclasses:* If the dataclass is defined with @dataclass(frozen=True), direct attribute assignment inside __post_init__ will raise a FrozenInstanceError. You must use object.__setattr__(self, 'field_name', value) instead.
+*Note on Frozen Dataclasses:* If the dataclass is defined with `@dataclass(frozen=True)`, direct attribute assignment inside `__post_init__` will raise a `FrozenInstanceError`. You must use `object.__setattr__(self, 'field_name', value)` instead.
 
 - Enforce validation before construction (i.e. stops it from being created wrong in the first place)
 
@@ -298,3 +334,24 @@ class Transaction:
     def __post_init__(self):
         pass
 ```
+
+
+### Feature: Transaction Atomicity & Data Consistency
+
+**Core Objective**
+
+Ensure financial data integrity by making transfers fully atomic—guaranteeing that a transaction either executes completely across both accounts or leaves the database entirely untouched.
+
+**Transfer Execution Workflow**
+
+1. **Validation & Debit:** The app validates account details and debits the source account.
+2. **Staging (In-Memory Storage):** Computed data for both sides of the transfer are stored in a temporary buffer before committing any primary database writes.
+3. **Atomic Commit or Rollback:**
+* **Success:** If no interruptions occur, all staged records are committed to the database simultaneously.
+* **Failure/Interruption:** If an error occurs mid-process, the staged changes are discarded. No records are written to the database.
+
+
+**Financial Audit Impact**
+
+* **Zero Partial State:** A "half transfer" cannot exist in the application. Uncommitted transactions are completely erased from state.
+* **Audit Integrity:** Only fully committed, two-sided transfers appear in **Account Activity** and reporting logs.
