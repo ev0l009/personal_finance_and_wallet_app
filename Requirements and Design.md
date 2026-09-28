@@ -22,10 +22,6 @@
 
 *   **Local Single-User Context:** The CLI application runs entirely within a local terminal environment. It assumes a single-user execution scope where authentication and network synchronization are not required.
 
-* **Account Balance Limits:** The application shall also implement a reasonable limit on the number of accounts a user can have to prevent a possibly bloated database.
-
-* **Account Balance & Transaction Limits:** At the CLI phase, the accounts will have a globally set maximum account balance capacity. Relevant limits may also be placed on transaction amounts. This is to prevent bloated and overly-unrealistic transaction inputs.
-
 
 ## 3. Identified Ambiguities and resolution
 
@@ -209,12 +205,19 @@ To ensure a resilient user experience, the system enforces a strict "Catch and R
 
 ### 2. Domain / Business Rule Violations (The Logic Layer)
 
+- **When it triggers:** Inside src/services/ledger_service.py after the input values have been confirmed as valid data types, but violate financial logical constraints.
+
+- **Scenarios handled:**: Attempting to overspend an account's balance (insufficient funds), or attempting a transaction targeting a deactivated account.
+
+- **Resolution action:**: The system raises custom, semantic exceptions (InsufficientFundsError, AccountInactiveError). The main interactive menu wrapper wraps service calls in a clean try-except block, catches these domain exceptions, and cleanly prints a transaction denial notice without risking local data corruption.
+
+###  3. Storage Layer Failures (The Data Resiliency Layer)
+
 - **When it triggers:** On application launch or during file-save sequences inside src/storage/file_manager.py.
 
-- **Scenarios handled:**: The local ledger.json file is physically altered outside the application, causing corrupt text formatting or syntax issues.
+- **Scenarios handled:** The local ledger.json file is physically altered outside the application, causing corrupt text formatting or syntax issues.
 
 - **Resolution action:**: The storage engine catches json.JSONDecodeError. Instead of crashing the whole executable, it initializes a clean, empty data structure ({"accounts": {}, "transactions": []}) to serve as a safety baseline and prints a diagnostic warning alert to the terminal screen.
-
 
 ## Testing Strategy
 An automated testing matrix using the pytest framework to systematically verify our business rules and boundaries before product deployment.
@@ -251,7 +254,7 @@ An automated testing matrix using the pytest framework to systematically verify 
 
 - **Execution:** Tests verify that when a data dictionary is written to a temporary test file, financial values are safely written out as integers, and that they read back into memory correctly with matching precision values.
 
-### UI / Smoke Testing Tier (Terminal Simulation)
+### 3. UI / Smoke Testing Tier (Terminal Simulation)
 - **Scope:** Simulates realistic user exploration sequences through the interactive prompts.
 
 - **Execution:** We use pytest’s native monkeypatch utility to override the standard builtins.input mechanism. This feeds sequential arrays of text lines (e.g., ["1", "acc_main", "acc_savings", "100.00"]) into the run loop, verifying that screens transition cleanly from option to option without hanging.
@@ -269,4 +272,29 @@ To protect the delivery timeline and maintain a highly optimized, lightweight te
 
 - **Rich Graphical Visualization (GUI Engines):** Financial summaries will render using text layouts or structured ASCII tables directly inside standard terminal output lines (stdout). Generating visual window windows, charts, or images is out of scope.
 
-- **Future-dated transactions**: This will not be implemented because this is primarily an offline CLI-based project and as such transactions cannot be scheduled at a future date.
+
+## NOTES
+
+### Transaction schema shouldn't allow invalid states and should enforce immutablility
+
+**Resolution:**
+
+- Use
+
+```python
+@dataclass (frozen=True)
+class Transaction:
+    pass
+```
+to enforce immutability after validation and constructions (i.e. stops it from being changed after creation.).
+
+*Note on Frozen Dataclasses:* If the dataclass is defined with @dataclass(frozen=True), direct attribute assignment inside __post_init__ will raise a FrozenInstanceError. You must use object.__setattr__(self, 'field_name', value) instead.
+
+- Enforce validation before construction (i.e. stops it from being created wrong in the first place)
+
+```python
+@dataclass (frozen=True)
+class Transaction:
+    def __post_init__(self):
+        pass
+```
