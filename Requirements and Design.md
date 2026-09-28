@@ -1,143 +1,819 @@
-# PERSONAL FINANCE & WALLET MANAGER
+# Personal Finance & Wallet Manager
 
-## 1. Requirements Interpretation
+## 1. Requirements
 
-*   **Multi-Account Ledger:** The system must centralize management for various financial accounts (e.g., cash, banks, wallets), treating each account as an independent sub-ledger. It must handle account creation, provide lists of available accounts, give access to specific account and handle account deactivation or deletion.
+### 1.1 Multi-Account Ledger
 
-*   **Atomic Mutations:** Income, expenses, and transfers must immediately trigger accurate mathematical changes to affected accounts, maintaining a transparent audit trail. Transfers by same user from one account to another account of theirs shouldn't within the application shouldn't affect net balance.
+The system must centralize management for various financial accounts, such as:
 
-*   **Dynamic Ledger Queries:** The historical logs must serve as a single source of truth, structured to support transaction tracking, multi-layered search and filtering, provide useful transaction details and concise overviews of overall financial state without mathematical discrepancies.
+* Cash
+* Bank accounts
+* Wallets
 
-*   **Persistent Data Storage:** The application must ensure the persistence of its data, so users should continue their sessions anytime even after exit.
+Each account is treated as an independent sub-ledger.
 
-*   **Intuitive CLI Interface:** The application's user interface should be intuitive and easy to use.
+The system must support:
 
-*   **Effective Error Handling & Robust Testing:** The application must be able to handle all relevant errors without affecting program flow and have a robust testing suite with adequate coverage of success paths, errors and edge cases.
+* Account creation
+* Listing available accounts
+* Accessing a specific account
+* Account deactivation
+* Account archival/retrieval
 
-*   **Detailed and Concise Documentation:** The application's documentation must provide essential information that helps user and developer quickly get used to the application.
+---
 
-## 2. Assumptions
+### 1.2 Atomic Mutations
 
-*   **Permanent Data Retention:** Accounts cannot be permanently hard-deleted from the database. They can only change states (Active to Inactive) to protect historical financial context and overall net worth calculations.
+Income, expenses, and transfers must immediately produce accurate mathematical changes to the affected accounts.
 
-*   **Local Single-User Context:** The CLI application runs entirely within a local terminal environment. It assumes a single-user execution scope where authentication and network synchronization are not required.
+All financial mutations must maintain a transparent audit trail.
 
+Internal transfers between accounts owned by the same user must **not affect aggregate net balance**, because money is being moved rather than earned or spent.
 
-## 3. Identified Ambiguities and resolution
+---
 
-- **Deactivate only empty accounts**  
-    *Resolution:* An **empty account** is defined as a structural state where an account holds a balance absolutely equivalent to 0 or nil, i.e the account has no cash in it. 
+### 1.3 Dynamic Ledger Queries
 
-- **Useful and concise overview of financial state**  
-    *Resolution:*
-    ### Feature: Financial Overview & Audit Reporting
+Historical transaction logs serve as the application's **single source of truth**.
 
-    **Core Objective**
+The ledger must support:
 
-    Provide users with a concise, time-bound overview of their financial health, detailing total income, total expenses, spending categories, and detailed account activity.
+* Transaction tracking
+* Search
+* Filtering
+* Transaction detail views
+* Account activity
+* Concise financial overviews
+* Historical financial reporting
 
-    **Income & Expense Logic**
+All queries and reports must remain mathematically consistent with the underlying ledger.
 
-    * **Inclusions:** Only deposits and withdrawals directly impact net balance calculations and are included in **Total Income** and **Total Expenses**.
-    * **Exclusions:** Internal transfer transactions are excluded from net income and expense calculations to prevent double-counting.
+---
 
-    **Transfer Transaction Rules**
+### 1.4 Persistent Data Storage
 
-    * **Account Tagging:** To ensure clear distinction from deposits or withdrawals, both source and destination accounts tied to a transfer are tagged as `transfer`.
-    * **Audit Trail:** Even though transfers do not alter aggregate net balance, they are fully recorded under **Account Activity** to maintain an accurate audit history.
+Application data must persist between sessions.
 
-    **Report Generation Filters**
-    Reports use flexible filtering criteria to organize data, including:
+Users should be able to exit the application and return later without losing their accounts, balances, or transaction history.
 
-    * **Timeframes:** Dynamic ranges (e.g., *This Week*, *Last 7 Days*, *Last Month*).
-    * **Transaction Types:** *Deposits*, *Expenses*, or *Transfers*.
-    * **Categories:** Specific expense types.
+---
 
+### 1.5 Intuitive CLI Interface
 
-## 4. Business Rules
+The terminal interface should be:
 
-### Account Management Rules
+* Simple
+* Predictable
+* Easy to navigate
+* Clear when displaying errors
+* Clear when displaying financial information
 
-*   **Name Uniqueness:** Every account name must be unique (case-insensitive) to prevent user confusion during transfers.
+The UI should not contain financial logic itself.
 
-*   **String Length Constraints:** Account names must be between 4 and 20 characters long and cannot consist purely of whitespace.
+---
 
-*   **Initialization Boundary:** A new account defaults to an empty starting balance equivalent to 0 unless a custom, positive opening balance is explicitly declared.
+### 1.6 Error Handling & Testing
 
-*   **Zero-Balance Deactivation:** An account can only be deactivated if is empty. If funds exist, the user must manually transfer them out first.
+The application must:
 
-*   **Visibility Filter:** Inactive accounts are excluded from everyday transaction choice menus but remain retrievable through an archival management menu.
+* Handle relevant errors without terminating unexpectedly
+* Provide meaningful error messages
+* Protect financial state from invalid operations
+* Have automated test coverage for:
 
-### Transaction & Balance Rules
+  * Success paths
+  * Error paths
+  * Edge cases
+  * Persistence behavior
+  * Transaction consistency
 
-*   **Overdraft Protection:** A withdrawal transaction must be blocked with an error if the amount exceeds the account's available balance. Negative balances are prohibited.
+---
 
-*   **Self-Transfer Prevention:** The system must reject transactions where the source account ID matches the destination account ID.
+### 1.7 Documentation
 
-*   **Immutability Flag:** Once a transaction is saved to the log, it cannot be edited or modified. To reverse a mistake, a counter-balancing transaction must be entered.
+Documentation should provide enough information for both users and developers to quickly understand:
 
+* What the application does
+* How the system is structured
+* How accounts and transactions work
+* How the data is stored
+* How to run the application
+* How to run the tests
 
-## Architecture Proposal
+---
 
-A Three-Tier Local Architecture optimized for an interactive CLI environment. By decoupling user prompts from core database states, we ensure that changes to the menu layout do not accidentally break financial math.
+# 2. Assumptions
+
+## 2.1 Permanent Data Retention
+
+Accounts cannot be permanently hard-deleted from the database.
+
+Instead, accounts transition between states such as:
 
 ```text
- Interactive Text Menus  <--- (Runs the continuous 'while True' console loop)
-            │
-            ▼
- 1. Command Parser     <--- Validates user menu inputs, numbers, and dates
-            │
-            ▼
- 2. Service Layer      <--- Executes ledger math, transfers, & business rules
-            │
-            ▼
- 3. Persistence Layer  <--- Handles atomic reads & writes to the local JSON file
+Active → Inactive
 ```
 
-### Architectural Component Responsibilities
+This preserves historical financial context and prevents historical transactions from losing their account references.
 
-- **The Interface Tier (Parser/UI):** Handles all terminal interactions (print and input). It captures user commands, ensures text fields are populated, and displays formatted tabular summaries back to the console.
+---
 
-- **The Logic Tier (Service):** The pure engine of the app. It manages incoming transaction logic, processes balance additions or deductions, evaluates custom business rule violations, and raises descriptive exceptions.
+## 2.2 Local Single-User Context
 
-- **The Storage Tier (Persistence):** Manages file I/O operations. It parses data back and forth between raw JSON text and strongly typed Python memory data blocks.
+The application runs entirely within a local terminal environment.
 
-## Proposed Project Structure
+The current version assumes:
 
-This directory blueprint mirrors our three-tier architecture proposal. It serves as a working baseline layout and will adapt organically during the coding phase:
+* One local user
+* No authentication system
+* No network synchronization
+* No cloud storage
+* Local operating-system file permissions provide the primary data-access boundary
+
+---
+
+## 2.3 Currency Representation
+
+Financial values use the **Minor Units / Integer Pattern**.
+
+Examples:
+
+```text
+$100.00 → 10000
+$50.25  → 5025
+```
+
+All financial values are therefore represented as Python `int` values rather than `float` values.
+
+This avoids floating-point rounding problems.
+
+---
+
+# 3. Resolved Ambiguities
+
+## 3.1 What Does "Empty Account" Mean?
+
+An account is considered empty when:
+
+```text
+balance == 0
+```
+
+An account containing any positive balance is not considered empty.
+
+### Resolution
+
+An account may only be deactivated when its balance is exactly zero.
+
+If funds remain, the user must transfer them elsewhere before deactivation.
+
+---
+
+# 4. Financial Overview & Audit Reporting
+
+## 4.1 Core Objective
+
+Provide users with a concise, time-bound overview of their financial state.
+
+Reports should be able to show:
+
+* Total income
+* Total expenses
+* Spending categories
+* Account activity
+* Relevant transaction history
+
+---
+
+## 4.2 Income & Expense Logic
+
+### Included
+
+Only deposits and withdrawals directly affect aggregate income/expense calculations.
+
+* Deposits → Total Income
+* Withdrawals → Total Expenses
+
+### Excluded
+
+Internal transfers are excluded from income and expense calculations.
+
+This prevents the same money from being counted as both income and expense when moved between the user's own accounts.
+
+---
+
+## 4.3 Transfer Rules
+
+Transfers must remain fully visible in the transaction history even though they do not affect aggregate net income.
+
+Each side of a transfer is associated with the relevant source/destination account.
+
+Transfers should be clearly identifiable as:
+
+```text
+transaction_type = "transfer"
+```
+
+### Audit Trail
+
+Transfers must appear under:
+
+```text
+Account Activity
+```
+
+This preserves an accurate historical record of where money moved.
+
+---
+
+## 4.4 Report Filters
+
+Reports should support flexible filtering.
+
+### Timeframes
+
+Examples:
+
+* This Week
+* Last 7 Days
+* Last Month
+* Custom date range
+
+### Transaction Types
+
+* Deposits
+* Expenses / Withdrawals
+* Transfers
+
+### Categories
+
+Reports may be filtered by specific expense categories.
+
+---
+
+# 5. Business Rules
+
+## 5.1 Account Management Rules
+
+### Name Uniqueness
+
+Every account name must be unique.
+
+Comparison should be case-insensitive.
+
+For example:
+
+```text
+Main Bank
+main bank
+MAIN BANK
+```
+
+must be treated as the same account name.
+
+---
+
+### Account Name Length
+
+Account names must:
+
+* Contain at least 4 characters
+* Contain no more than 20 characters
+* Not consist entirely of whitespace
+
+---
+
+### Account Initialization
+
+A newly created account defaults to:
+
+```python
+balance = 0
+```
+
+unless a custom positive opening balance is explicitly supplied.
+
+---
+
+### Zero-Balance Deactivation
+
+An account can only be deactivated when:
+
+```python
+balance == 0
+```
+
+If funds exist, they must first be transferred out.
+
+---
+
+### Inactive Account Visibility
+
+Inactive accounts should be hidden from normal transaction-selection menus.
+
+They remain accessible through an archival/account-management interface.
+
+---
+
+## 5.2 Transaction & Balance Rules
+
+### Overdraft Protection
+
+A withdrawal must be rejected when:
+
+```python
+amount > account.balance
+```
+
+Negative account balances are prohibited.
+
+---
+
+### Self-Transfer Prevention
+
+A transfer must be rejected when:
+
+```python
+source_account_id == destination_account_id
+```
+
+An account cannot transfer money to itself.
+
+---
+
+### Transaction Immutability
+
+Once a transaction has been committed to the ledger, it cannot be edited or modified.
+
+To correct an erroneous transaction, a counter-balancing transaction must be created.
+
+---
+
+# 6. Transaction Integrity & Atomicity
+
+## 6.1 Core Objective
+
+Financial operations must preserve data consistency.
+
+A transfer must be **atomic**:
+
+> Either the entire transfer succeeds, or no part of it becomes committed state.
+
+A "half transfer" must never exist in the application.
+
+---
+
+## 6.2 Transfer Execution Workflow
+
+### Step 1 — Validation
+
+Validate:
+
+* Source account
+* Destination account
+* Account activity state
+* Transfer amount
+* Available balance
+* Self-transfer condition
+
+---
+
+### Step 2 — Staging
+
+Calculate the effects of both sides of the transfer in memory before committing the primary state changes.
+
+Example:
+
+```text
+Source:
+    balance -= amount
+
+Destination:
+    balance += amount
+```
+
+These changes remain staged until validation and processing have completed successfully.
+
+---
+
+### Step 3 — Commit
+
+If the entire operation succeeds:
+
+```text
+Commit all staged changes
+```
+
+---
+
+### Step 4 — Failure / Rollback
+
+If an error occurs before commitment:
+
+```text
+Discard staged changes
+```
+
+No partial transaction should reach persistent storage.
+
+---
+
+## 6.3 Financial Audit Impact
+
+### Zero Partial State
+
+The system must never contain a committed transfer where only one side exists.
+
+### Audit Integrity
+
+Only fully committed transfers should appear in:
+
+* Account activity
+* Transaction history
+* Reporting logs
+
+---
+
+# 7. Transaction Model Integrity
+
+The transaction schema should prevent invalid states from being created.
+
+Transactions should be immutable after construction.
+
+## 7.1 Frozen Dataclass
+
+The intended model is:
+
+```python
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Transaction:
+    pass
+```
+
+`frozen=True` prevents direct mutation after construction.
+
+---
+
+## 7.2 Validation Before Construction
+
+Transaction validation should ensure that invalid transaction objects cannot be created in the first place.
+
+A validation hook may be implemented using:
+
+```python
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Transaction):
+
+    def __post_init__(self):
+        pass
+```
+
+### Frozen Dataclass Consideration
+
+Because frozen dataclasses prevent normal attribute assignment, fields that must be normalized or transformed inside `__post_init__` require:
+
+```python
+object.__setattr__(self, "field_name", value)
+```
+
+rather than:
+
+```python
+self.field_name = value
+```
+
+---
+
+# 8. Account State Invariants
+
+Business rules should be enforced as close as possible to the state they protect.
+
+## 8.1 Balance Setter
+
+`balance` changes over time, but every write must satisfy the application's balance rules.
+
+A property with a setter can be used to intercept balance mutations:
+
+```python
+@property
+def balance(self):
+    ...
+    
+@balance.setter
+def balance(self, value):
+    ...
+```
+
+This makes the balance constraint part of the object's runtime invariant rather than merely an external guideline.
+
+---
+
+## 8.2 Account Field Mutability
+
+The intended mutability model is:
+
+| Field          | Mutability                       |
+| -------------- | -------------------------------- |
+| `account_type` | Write-once                       |
+| `id`           | Write-once                       |
+| `created_at`   | Write-once                       |
+| `balance`      | Mutable through validated setter |
+| `name`         | Mutable through validated setter |
+
+This means:
+
+* `id` should not change after creation.
+* `account_type` should not change after creation.
+* `created_at` should not change after creation.
+* `balance` may change, but only through validation.
+* `name` may be changed because users are allowed to rename accounts.
+
+---
+
+# 9. Constrained Values & Enums
+
+Where a field can only contain a defined set of states, an `Enum` should be used rather than arbitrary strings.
+
+For example:
+
+```python
+from enum import Enum
+
+
+class Status(Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+```
+
+---
+
+## 9.1 Enum Access
+
+```python
+item = Status.PENDING
+
+print(item)
+print(item.name)
+print(item.value)
+```
+
+Conceptually:
+
+```text
+Status.PENDING
+PENDING
+pending
+```
+
+---
+
+## 9.2 Enum Lookup
+
+Lookup by value:
+
+```python
+Status("completed")
+```
+
+Lookup by name:
+
+```python
+Status["FAILED"]
+```
+
+---
+
+## 9.3 Enum Iteration
+
+```python
+for status in Status:
+    print(f"{status.name} -> {status.value}")
+```
+
+Enums should be considered for constrained fields such as:
+
+* Account status
+* Account type
+* Transaction type
+
+This prevents arbitrary string values from entering the system.
+
+---
+
+# 10. Architecture
+
+The application follows a **Three-Tier Local Architecture** optimized for an interactive CLI environment.
+
+The main principle is to separate:
+
+```text
+User Interaction
+        ↓
+Business Logic
+        ↓
+Persistence
+```
+
+This prevents changes to the CLI/menu system from accidentally affecting financial calculations.
+
+---
+
+## 10.1 Architecture Overview
+
+```text
+┌───────────────────────────────┐
+│     Interactive Text Menus    │
+│                               │
+│   Continuous while loop       │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│       Command Parser          │
+│                               │
+│ Validates menu inputs,        │
+│ numbers, dates, etc.          │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│        Service Layer          │
+│                               │
+│ Ledger math, transfers,       │
+│ business rules                │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│       Persistence Layer       │
+│                               │
+│ Atomic JSON reads/writes      │
+└───────────────────────────────┘
+```
+
+---
+
+# 11. Architectural Responsibilities
+
+## 11.1 Interface Tier
+
+Responsible for:
+
+* Terminal interaction
+* `print()`
+* `input()`
+* Menu rendering
+* Basic input validation
+* Displaying formatted tables
+* Displaying summaries
+* Presenting errors to the user
+
+The interface layer should not contain financial business logic.
+
+---
+
+## 11.2 Logic / Service Tier
+
+The service layer is the core engine of the application.
+
+Responsible for:
+
+* Deposits
+* Withdrawals
+* Transfers
+* Balance mutations
+* Business rule enforcement
+* Account operations
+* Transaction creation
+* Raising domain-specific exceptions
+
+---
+
+## 11.3 Storage / Persistence Tier
+
+Responsible for:
+
+* File I/O
+* JSON serialization
+* JSON deserialization
+* Loading application state
+* Saving application state
+* Timestamp conversion
+* Atomic file replacement
+
+The persistence layer translates between:
+
+```text
+JSON ↔ Python objects
+```
+
+---
+
+# 12. Proposed Project Structure
 
 ```text
 finance_ledger/
 │
 ├── data/
-│   └── ledger.json          # The localized JSON document storage file
+│   └── ledger.json
 │
 ├── src/
-│   ├── main.py              # App entry point; hosts the main menu loop
+│   ├── main.py
 │   │
 │   ├── ui/
-│   │   ├── menus.py         # Sub-menus (Accounts menu, Transaction log display)
-│   │   └── validators.py    # Console string-to-number check utilities
+│   │   ├── menus.py
+│   │   └── validators.py
 │   │
 │   ├── services/
-│   │   ├── ledger_service.py# Implements transfer, deposit, and validation math
-│   │   ├── models.py        # Python dataclass objects (Account, Transaction)
-│   │   └── exceptions.py    # Custom domain exceptions (e.g., InsufficientFundsError)
+│   │   ├── ledger_service.py
+│   │   ├── models.py
+│   │   └── exceptions.py
 │   │
 │   └── storage/
-│       └── file_manager.py  # Atomic JSON engine (safely handles load and save)
+│       └── file_manager.py
 │
 └── tests/
-    └── test_ledger.py       # Pytest suite validating business logic blocks
+    └── test_ledger.py
 ```
 
+### Responsibilities
 
-## Data Model Proposal
+| File                         | Responsibility                                    |
+| ---------------------------- | ------------------------------------------------- |
+| `main.py`                    | Application entry point and main menu loop        |
+| `ui/menus.py`                | Menus and transaction-log presentation            |
+| `ui/validators.py`           | Console input validation                          |
+| `services/ledger_service.py` | Deposits, withdrawals, transfers, business rules  |
+| `services/models.py`         | `Account`, `Transaction`, and related dataclasses |
+| `services/exceptions.py`     | Domain-specific exceptions                        |
+| `storage/file_manager.py`    | JSON loading, saving, and atomic writes           |
+| `data/ledger.json`           | Local persistent data                             |
+| `tests/test_ledger.py`       | Automated test suite                              |
 
-The application will maintain its state inside a single localized document. This is presented in a JSON structure, paired with matching Python code representations (src/services/models.py) to enforce strong data typing.
+---
 
-### Proposed Storage Payload Blueprint (JSON Schema)
-The JSON schema effectively links separate transaction operations back to their target account entities without duplicating raw state data:
+# 13. Data Model
+
+The application maintains its persistent state inside a single local JSON document.
+
+Python `dataclass` objects represent the corresponding domain entities in memory.
+
+---
+
+## 13.1 Account Entity
+
+An account contains:
+
+* `id`
+* `name`
+* `account_type`
+* `balance`
+* `is_active`
+* `created_at`
+
+Example:
+
+```json
+{
+    "id": "acc_01J8Y",
+    "name": "Main Bank",
+    "account_type": "bank",
+    "balance": 125050,
+    "is_active": true,
+    "created_at": "2026-09-23T10:00:00Z"
+}
+```
+
+---
+
+## 13.2 Transaction Entity
+
+The transaction entity provides a unified representation for:
+
+* Deposits
+* Withdrawals
+* Transfers
+
+Standard single-account transactions may not require both account references.
+
+Transfers require references to both:
+
+* Source account
+* Destination account
+
+Financial values are stored as integers representing minor currency units.
+
+---
+
+# 14. Proposed JSON Storage Structure
 
 ```json
 {
@@ -161,197 +837,726 @@ The JSON schema effectively links separate transaction operations back to their 
             "category": "savings_allocation",
             "description": "Monthly savings transfer",
             "timestamp": "2026-09-23T11:30:00Z"
-        },
-        {
-            "id": "tx_99A1Z",
-            "transaction_type": "deposit",
-            "amount": 10000,
-            "source_account_id": "acc_01J8Y",
-            "destination_account_id": "tx_99A1Z",
-            "category": "savings_allocation",
-            "description": "Monthly savings transfer",
-            "timestamp": "2026-09-23T11:30:00Z"
         }
     ]
 }
 ```
 
-### Logical Data Definitions (Python Implementation Mapping)
+---
 
-To manipulate this JSON structure safely, the backend service layer translates these elements into native `dataclass` objects. Crucially, the Minor Units (Integer) Pattern will be employed and so all financial values are mapped to `int` types rather than `float` to avoid terminal rounding errors:
+## 14.1 Data Model Review Flags
 
-- **Account Entity:** Tracks structural identity metadata (`id`, `name`, `account_type`), financial state (`balance`), and operational availability flags (`is_active`).
+Before implementation, the transaction schema should be finalized.
 
-- **Transaction Entity:** Unifies deposits, withdrawals, and transfers under one unified schema. For standard single-account transactions (like deposits or withdrawals), the unneeded relational ID slot is assigned a value of None while for transfer transactions involving more than one account, the IDs of both sender and receiver must be provided.
-
-
-## Persistence Decision
-A local JSON file storage (data/ledger.json) shall act as our persistence layer. It provides an optimal balance between simplicity and transparency for a standalone CLI tool.
-
-To mitigate the inherent stability risks of flat-file storage, we enforce two engineering constraints:
-
-### 1. The Atomic File Swap Engine (Anti-Corruption Pattern)
-
-**The Risk:**  
-
-- If a user closes their terminal shell or the computer suddenly crashes while the program is actively overwriting ledger.json, the file will break halfway, resulting in unreadable data loss.
-
-**The Mitigating Strategy:** The system executes an Atomic Write-Ahead Replace workflow using Python's native os.replace() function:
-
-- The updated data object is completely serialized and written out to a separate, temporary path (data/ledger.json.tmp).
-
-- Once Python confirms the temporary file write has finished successfully, the operating system executes a low-level pointer shift, instantly renaming the .tmp file over the production ledger.json file. This guarantees that a partial file write can never occur.
-
-
-### 2. High-Precision Data Serialization Pipeline
-
-**The Constraint:** JSON cannot natively interpret complex Python data objects like datetime.datetime.
-
-**The Solution:** The storage/file_manager.py component implements a bilateral serialization conversion pipeline:
-
-- **During Data Loading:** Strings representing timestamps (e.g., `"2026-09-23T10:00:00Z"`) are parsed using datetime.fromisoformat() to prepare them for operations. 
-
-- **During Data Saving:** The structural objects are broken down back into base strings, ready to be dumped to flat JSON text lines.
-
-
-## Error-Handling Strategy
-To ensure a resilient user experience, the system enforces a strict "Catch and Recover" boundary pattern. The application isolates exceptions into three distinct technical layers, preventing hard crashes and code tracebacks from showing up in the user's terminal:
-
-### 1. UI / Validation Failures (The Gatekeeper Layer)
-
-- **When it triggers:** At the interactive command prompt, immediately upon reading keyboard input via input().
-
-- **Scenarios handled:**: A user inputs non-numeric characters (e.g., "abc") into an amount field, or types a menu number choice that does not exist on the current screen.
-
-- **Resolution action:**: The interface layer intercepts native Python exceptions like `ValueError`, completely halts downstream processing, prints a clear warning banner (e.g., ⚠️ Validation Error: Please enter a valid numeric amount), and smoothly re-renders the input loop.
-
-### 2. Domain / Business Rule Violations (The Logic Layer)
-
-- **When it triggers:** Inside src/services/ledger_service.py after the input values have been confirmed as valid data types, but violate financial logical constraints.
-
-- **Scenarios handled:**: Attempting to overspend an account's balance (insufficient funds), or attempting a transaction targeting a deactivated account.
-
-- **Resolution action:**: The system raises custom, semantic exceptions (InsufficientFundsError, AccountInactiveError). The main interactive menu wrapper wraps service calls in a clean try-except block, catches these domain exceptions, and cleanly prints a transaction denial notice without risking local data corruption.
-
-###  3. Storage Layer Failures (The Data Resiliency Layer)
-
-- **When it triggers:** On application launch or during file-save sequences inside src/storage/file_manager.py.
-
-- **Scenarios handled:** The local ledger.json file is physically altered outside the application, causing corrupt text formatting or syntax issues.
-
-- **Resolution action:**: The storage engine catches json.JSONDecodeError. Instead of crashing the whole executable, it initializes a clean, empty data structure ({"accounts": {}, "transactions": []}) to serve as a safety baseline and prints a diagnostic warning alert to the terminal screen.
-
-#### Possible exceptions list;
-
-- InsufficientFundsError - Raised when an account balance falls below the transaction amount.
-
-- NegativeAmountError - Raised when a negative value is provided for an amount field.
-
-- InvalidFieldAttributeError - Raised when invalid/insufficient characters are used and the field in question is shown for context
-
-- DuplicateAccountNameError - Raised when creating an account with same name as an already registered account
-
-- InterAccountTransferMismatchError - Raised when a transfer debits the source account but fails to credit the destination account.
-
-- DormantAccountError - Raised when attempting to log a transaction against an archive-only or closed financial account.
-
-## Testing Strategy
-An automated testing matrix using the pytest framework to systematically verify our business rules and boundaries before product deployment.
+The original design contained an example where:
 
 ```text
- ┌──────────────────────┐
- │  1. Unit Tests       │ <--- Tests core calculations and custom domain errors
- └──────────────────────┘
-            │
-            ▼
- ┌──────────────────────┐
- │  2. Integration Tests│ <--- Tests the serialization conversion and file swapping
- └──────────────────────┘
-            │
-            ▼
- ┌──────────────────────┐
- │  3. UI / Smoke Tests │ <--- Simulates realistic keyboard choices via monkeypatching
- └──────────────────────┘
+transaction id = tx_99A1Z
+destination_account_id = tx_99A1Z
 ```
 
-### 1. Unit Testing Tier (Isolated Logic)
+This appears to reference the transaction itself rather than an account.
 
-- **Scope:** Focuses entirely on pure mathematical mutations and validation rules. It operates completely independent of files or terminal text.
+Additionally, the original sample contained two transactions with the same transaction ID.
 
-- **Execution:** We use static mock dataset fixtures in memory. We explicitly pass test parameters to check things like:
+These should be resolved before implementation.
 
-* Ensuring a $50 deposit mathematically increments an account balance to exactly its expected target.
+### Required invariants
 
-* Asserting that trying to trigger a transfer larger than an available balance correctly raises an `InsufficientFundsError`.
+At minimum:
 
-### 2. Integration Testing Tier (Storage Pipeline)
+```text
+Transaction IDs must be unique.
+Account IDs must be unique.
+source_account_id must reference an account.
+destination_account_id must reference an account.
+```
 
-- **Scope:** Verifies that our serialization pipeline translates data types smoothly.
+For deposits/withdrawals, the account-reference semantics should also be explicitly defined rather than reusing transfer fields ambiguously.
 
-- **Execution:** Tests verify that when a data dictionary is written to a temporary test file, financial values are safely written out as integers, and that they read back into memory correctly with matching precision values.
+---
 
-### 3. UI / Smoke Testing Tier (Terminal Simulation)
-- **Scope:** Simulates realistic user exploration sequences through the interactive prompts.
+# 15. Persistence Strategy
 
-- **Execution:** We use pytest’s native monkeypatch utility to override the standard builtins.input mechanism. This feeds sequential arrays of text lines (e.g., `["1", "acc_main", "acc_savings", "100.00"]`) into the run loop, verifying that screens transition cleanly from option to option without hanging.
+The application uses:
 
+```text
+data/ledger.json
+```
 
-## Explicit Out-of-Scope Decisions
+as its local persistence layer.
 
-To protect the delivery timeline and maintain a highly optimized, lightweight terminal tool, the following capabilities are explicitly classified as out-of-scope for this version of the application:
+JSON provides a simple and transparent storage mechanism appropriate for a standalone CLI application.
 
-- **Multi-User Context & Session Access Control:** The application operates as a single-user ledger. It features no login passwords or permission levels. Data safety is assumed to be managed entirely via local operating system file permissions.
+---
 
-- **Multi-Currency Exchanges & Foreign Conversion Engine:** All fields process uniform, static currency values. There are no integrations with live exchange rate APIs.
+# 16. Atomic File Persistence
 
-- **Real-Time Network Persistence (Cloud Storage):** Data storage is completely isolated to a single, local file (data/ledger.json). External database connections (SQL Servers) or web API sync points are excluded.
+## 16.1 The Risk
 
-- **Rich Graphical Visualization (GUI Engines):** Financial summaries will render using text layouts or structured ASCII tables directly inside standard terminal output lines (stdout). Generating visual window windows, charts, or images is out of scope.
+Directly overwriting `ledger.json` creates a corruption risk.
 
+If the program or computer terminates while the file is being written, the resulting JSON may be incomplete or unreadable.
 
-## NOTES
+---
 
-### Transaction schema shouldn't allow invalid states and should enforce immutablility
+## 16.2 Atomic Replacement Strategy
 
-**Resolution:**
+The application writes to a temporary file first:
 
-- Use
+```text
+data/ledger.json.tmp
+```
+
+Workflow:
+
+```text
+Python state
+     ↓
+Serialize
+     ↓
+ledger.json.tmp
+     ↓
+Successful write
+     ↓
+os.replace()
+     ↓
+ledger.json
+```
+
+Python's:
 
 ```python
-@dataclass (frozen=True)
-class Transaction:
-    pass
+os.replace()
 ```
-to enforce immutability after validation and constructions (i.e. stops it from being changed after creation.).
 
-*Note on Frozen Dataclasses:* If the dataclass is defined with `@dataclass(frozen=True)`, direct attribute assignment inside `__post_init__` will raise a `FrozenInstanceError`. You must use `object.__setattr__(self, 'field_name', value)` instead.
+is used to replace the existing production file with the successfully written temporary file.
 
-- Enforce validation before construction (i.e. stops it from being created wrong in the first place)
+This prevents the application from intentionally leaving behind a partially written production ledger.
+
+---
+
+# 17. Timestamp Serialization
+
+JSON cannot directly serialize objects such as:
 
 ```python
-@dataclass (frozen=True)
-class Transaction:
-    def __post_init__(self):
-        pass
+datetime.datetime
 ```
 
+Therefore the persistence layer performs conversion in both directions.
 
-### Feature: Transaction Atomicity & Data Consistency
+## 17.1 Loading
 
-**Core Objective**
+Timestamp strings such as:
 
-Ensure financial data integrity by making transfers fully atomic—guaranteeing that a transaction either executes completely across both accounts or leaves the database entirely untouched.
+```text
+2026-09-23T10:00:00Z
+```
 
-**Transfer Execution Workflow**
+are converted into Python datetime objects using:
 
-1. **Validation & Debit:** The app validates account details and debits the source account.
-2. **Staging (In-Memory Storage):** Computed data for both sides of the transfer are stored in a temporary buffer before committing any primary database writes.
-3. **Atomic Commit or Rollback:**
-* **Success:** If no interruptions occur, all staged records are committed to the database simultaneously.
-* **Failure/Interruption:** If an error occurs mid-process, the staged changes are discarded. No records are written to the database.
+```python
+datetime.fromisoformat()
+```
 
+---
 
-**Financial Audit Impact**
+## 17.2 Saving
 
-* **Zero Partial State:** A "half transfer" cannot exist in the application. Uncommitted transactions are completely erased from state.
-* **Audit Integrity:** Only fully committed, two-sided transfers appear in **Account Activity** and reporting logs.
+Python datetime objects are converted back into serializable timestamp strings before being written to JSON.
+
+---
+
+# 18. Error-Handling Strategy
+
+The application follows a **Catch & Recover** model.
+
+Errors are handled at the layer where they are most meaningful, preventing unnecessary crashes and exposing implementation tracebacks to normal users.
+
+---
+
+## 18.1 UI / Validation Errors
+
+### Trigger
+
+Occurs while processing interactive keyboard input.
+
+Examples:
+
+* Non-numeric amount
+* Invalid menu choice
+* Invalid date format
+
+### Handling
+
+The UI catches native exceptions such as:
+
+```python
+ValueError
+```
+
+and re-renders the input prompt.
+
+Example:
+
+```text
+⚠️ Validation Error:
+Please enter a valid numeric amount.
+```
+
+---
+
+# 19. Domain / Business Rule Errors
+
+### Trigger
+
+Occurs inside the service layer after input has passed basic type validation but violates a financial rule.
+
+Examples:
+
+* Insufficient funds
+* Inactive account
+* Duplicate account name
+* Self-transfer
+* Invalid amount
+
+### Handling
+
+The service layer raises semantic domain exceptions.
+
+Examples:
+
+```python
+InsufficientFundsError
+AccountInactiveError
+```
+
+The application boundary catches these exceptions and displays a clean transaction-denial message.
+
+---
+
+# 20. Storage Errors
+
+### Trigger
+
+Occurs while loading or saving persistent data.
+
+Examples:
+
+* Corrupted JSON
+* Invalid JSON syntax
+* File read/write failure
+
+### Current Proposed Handling
+
+The storage engine catches:
+
+```python
+json.JSONDecodeError
+```
+
+and initializes:
+
+```python
+{
+    "accounts": {},
+    "transactions": []
+}
+```
+
+as a safety baseline while displaying a diagnostic warning.
+
+### Review Flag
+
+The exact recovery policy for corrupted financial data should be finalized before implementation.
+
+Automatically replacing corrupted financial data with an empty ledger can potentially hide or overwrite access to existing financial history.
+
+A safer implementation may eventually require:
+
+```text
+Detect corruption
+     ↓
+Preserve corrupted file
+     ↓
+Create backup/quarantine copy
+     ↓
+Notify user
+     ↓
+Attempt recovery / require explicit action
+```
+
+This should be treated as a design decision rather than assumed behavior.
+
+---
+
+# 21. Domain Exception Catalogue
+
+| Exception                           | Purpose                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------ |
+| `InsufficientFundsError`            | Account balance is lower than the requested transaction amount                       |
+| `NegativeAmountError`               | Negative amount supplied                                                             |
+| `InvalidFieldAttributeError`        | Field contains invalid or insufficient data                                          |
+| `DuplicateAccountNameError`         | Account name already exists                                                          |
+| `InterAccountTransferMismatchError` | Transfer debits the source but fails to credit the destination                       |
+| `DormantAccountError`               | Transaction targets an archive-only/closed account                                   |
+| `FutureDatedTransactionError`       | Transaction timestamp is in the future when real-time historical logging is required |
+| `AccountInactiveError`              | Account exists but is disabled, archived, or frozen                                  |
+| `AccountNotFoundError`              | Referenced account cannot be found                                                   |
+
+---
+
+# 22. Testing Strategy
+
+Testing uses `pytest` and is divided into three levels:
+
+```text
+┌──────────────────────────┐
+│     1. Unit Tests        │
+│                          │
+│ Core calculations +      │
+│ domain rules             │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│   2. Integration Tests   │
+│                          │
+│ Serialization +          │
+│ persistence              │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│    3. UI / Smoke Tests   │
+│                          │
+│ Interactive CLI flows    │
+└──────────────────────────┘
+```
+
+---
+
+# 23. Unit Testing
+
+## Scope
+
+Unit tests focus on isolated business logic and validation.
+
+They should not depend on:
+
+* Real files
+* The terminal
+* User input
+
+---
+
+## Examples
+
+### Deposit
+
+Given:
+
+```text
+Initial balance = 10000
+Deposit = 5000
+```
+
+Expected:
+
+```text
+Final balance = 15000
+```
+
+---
+
+### Insufficient Funds
+
+Attempting to transfer or withdraw more than the available balance should raise:
+
+```python
+InsufficientFundsError
+```
+
+---
+
+### Additional Unit-Test Targets
+
+Tests should cover:
+
+* Account creation
+* Duplicate names
+* Account-name validation
+* Zero-balance deactivation
+* Withdrawal validation
+* Self-transfer rejection
+* Negative amounts
+* Inactive accounts
+* Transaction immutability
+* Enum constraints
+* Balance invariants
+* Transaction ID uniqueness
+
+---
+
+# 24. Integration Testing
+
+## Scope
+
+Integration tests verify interaction between:
+
+```text
+Python Objects
+      ↓
+Serialization
+      ↓
+JSON
+      ↓
+Deserialization
+      ↓
+Python Objects
+```
+
+Tests should verify:
+
+* Financial values remain integers
+* Datetimes serialize correctly
+* Datetimes deserialize correctly
+* Account state survives a save/load cycle
+* Transactions survive a save/load cycle
+* Atomic file replacement works correctly
+
+Temporary test files should be used rather than the production ledger.
+
+---
+
+# 25. UI / Smoke Testing
+
+The UI test layer simulates realistic user interaction.
+
+`pytest`'s `monkeypatch` utility can replace:
+
+```python
+builtins.input
+```
+
+with predefined input sequences.
+
+Example:
+
+```python
+[
+    "1",
+    "acc_main",
+    "acc_savings",
+    "100.00"
+]
+```
+
+This allows tests to verify that:
+
+* Menus transition correctly
+* Invalid input is recovered from
+* Transactions complete successfully
+* The application does not hang
+* The correct output is produced
+
+---
+
+# 26. Explicitly Out of Scope
+
+The following features are excluded from the current version.
+
+## 26.1 Multi-User Authentication
+
+The application is single-user.
+
+Excluded:
+
+* Login passwords
+* User accounts
+* Permission levels
+* Multi-user sessions
+
+Local operating-system permissions are assumed to provide file-level protection.
+
+---
+
+## 26.2 Multi-Currency Conversion
+
+Excluded:
+
+* Multiple currencies
+* Exchange-rate calculations
+* Live FX APIs
+* Currency conversion
+
+The current application operates using one static currency representation.
+
+---
+
+## 26.3 Cloud / Network Persistence
+
+Excluded:
+
+* SQL servers
+* Cloud databases
+* Web APIs
+* Remote synchronization
+* Network persistence
+
+All data remains local:
+
+```text
+data/ledger.json
+```
+
+---
+
+## 26.4 GUI / Rich Visualization
+
+Excluded:
+
+* Desktop GUI
+* Graphical charts
+* Image generation
+* Visual dashboards
+
+Financial summaries will be displayed through:
+
+* Text
+* Structured tables
+* ASCII layouts
+
+inside the terminal.
+
+---
+
+# 27. Design Invariants
+
+The following rules should remain true throughout the application's lifetime.
+
+### Account Invariants
+
+```text
+Account IDs are unique.
+Account names are unique case-insensitively.
+Account balance cannot become negative.
+Account ID cannot change after creation.
+Account type cannot change after creation.
+Created timestamp cannot change after creation.
+Inactive accounts cannot receive normal transactions.
+```
+
+### Transaction Invariants
+
+```text
+Transaction IDs are unique.
+Transactions are immutable after creation.
+Transaction amounts cannot be negative.
+Transactions reference valid accounts where required.
+Transfers cannot target the same account.
+Transfers must be atomic.
+```
+
+### Persistence Invariants
+
+```text
+Production ledger should never intentionally contain partially written JSON.
+Financial state must survive normal application restarts.
+Serialization must preserve financial precision.
+```
+
+---
+
+# 28. Implementation Order
+
+The design naturally breaks into the following implementation sequence:
+
+```text
+1. Domain Models
+       ↓
+2. Domain Exceptions
+       ↓
+3. Validation Rules
+       ↓
+4. Account Management
+       ↓
+5. Deposit / Withdrawal Logic
+       ↓
+6. Transfer Logic
+       ↓
+7. Transaction Immutability
+       ↓
+8. Persistence / JSON Serialization
+       ↓
+9. Atomic File Replacement
+       ↓
+10. Reporting & Queries
+       ↓
+11. CLI Menus
+       ↓
+12. Automated Tests
+       ↓
+13. Documentation
+```
+
+This keeps the financial core independent from the interface and allows the service layer to be tested before the complete CLI is built.
+
+---
+
+# 29. Final Review Checklist
+
+Before implementation is considered complete, verify:
+
+## Domain
+
+* [ ] `Account` model finalized
+* [ ] `Transaction` model finalized
+* [ ] Enums finalized
+* [ ] Field mutability rules finalized
+* [ ] Transaction immutability implemented
+* [ ] Balance invariant implemented
+
+## Business Rules
+
+* [ ] Account name uniqueness
+* [ ] Account name length validation
+* [ ] Zero-balance deactivation
+* [ ] Inactive-account restrictions
+* [ ] Overdraft protection
+* [ ] Negative amount protection
+* [ ] Self-transfer prevention
+* [ ] Transaction immutability
+* [ ] Transfer atomicity
+
+## Persistence
+
+* [ ] JSON schema finalized
+* [ ] Unique transaction IDs
+* [ ] Correct account references
+* [ ] Datetime serialization
+* [ ] Datetime deserialization
+* [ ] Atomic file replacement
+* [ ] Corrupted-file recovery policy finalized
+
+## Testing
+
+* [ ] Unit tests
+* [ ] Integration tests
+* [ ] UI/smoke tests
+* [ ] Success paths
+* [ ] Error paths
+* [ ] Edge cases
+* [ ] Persistence tests
+* [ ] Atomicity tests
+
+## CLI
+
+* [ ] Main menu
+* [ ] Account management
+* [ ] Deposit
+* [ ] Withdrawal
+* [ ] Transfer
+* [ ] Transaction history
+* [ ] Financial reports
+* [ ] Filtering
+* [ ] Error messages
+* [ ] Inactive-account management
+
+## Documentation
+
+* [ ] Installation/setup instructions
+* [ ] Usage instructions
+* [ ] Architecture explanation
+* [ ] Data model documentation
+* [ ] Business rules documented
+* [ ] Testing instructions
+
+---
+
+# 30. Open Design Decisions
+
+These points should be settled before or during implementation rather than being accidentally decided by the code.
+
+### 30.1 Transaction Representation
+
+Finalize exactly how deposits, withdrawals, and transfers populate account-reference fields.
+
+---
+
+### 30.2 Corrupted Ledger Recovery
+
+Decide whether corrupted JSON should:
+
+* Automatically reset to an empty ledger
+* Be backed up/quarantined
+* Require explicit user recovery
+* Attempt automatic recovery
+
+For financial data, the recovery policy should prioritize preservation of the existing ledger.
+
+---
+
+### 30.3 Transaction Timestamp Policy
+
+Finalize whether:
+
+* Users may provide historical timestamps
+* Future timestamps are prohibited
+* All timestamps are generated by the application
+* A limited amount of timestamp adjustment is allowed
+
+---
+
+### 30.4 Account Status Model
+
+Decide whether account state should remain a simple:
+
+```python
+is_active: bool
+```
+
+or become an enum such as:
+
+```python
+class AccountStatus(Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    FROZEN = "frozen"
+    ARCHIVED = "archived"
+```
+
+The latter should only be introduced if the additional states have meaningful behavioral differences.
+
+---
+
+# 31. Core Design Principle
+
+The central architectural principle of the project is:
+
+> **The CLI should never be responsible for financial truth.**
+
+The system should instead follow:
+
+```text
+CLI
+ ↓
+Validation
+ ↓
+Service / Domain Logic
+ ↓
+Validated Domain State
+ ↓
+Persistence
+ ↓
+JSON
+```
+
+The interface can change without changing the financial rules.
+
+The persistence mechanism can change without rewriting the CLI.
+
+The business rules remain centralized in the service/domain layer.
+
+That separation is what allows the project to remain maintainable as the application grows.
