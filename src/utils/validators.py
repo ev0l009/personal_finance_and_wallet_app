@@ -14,6 +14,6 @@ def check_account_name(name: str, field: str):
 
     valid_character_pool = string.ascii_letters + string.digits
 
-    for char in name:
+    for char in name.replace(" ", ""):
         if char not in valid_character_pool:
-            raise InvalidFieldAttributeError("Characters can only alphabets and numbers not.")
+            raise InvalidFieldAttributeError(f"Err: {field} requires only alphabets and numbers.")
