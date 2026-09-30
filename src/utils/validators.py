@@ -1,6 +1,7 @@
 import string
 
 from services.exceptions import InvalidFieldAttributeError
+from services.exceptions import InvalidAmountError
 
 MIN_ACCOUNT_NAME_LENGTH = 4
 MAX_ACCOUNT_NAME_LENGTH = 20
@@ -17,3 +18,8 @@ def check_account_name(name: str, field: str):
     for char in name.replace(" ", ""):
         if char not in valid_character_pool:
             raise InvalidFieldAttributeError(f"Err: {field} requires only alphabets and numbers.")
+        
+
+def require_no_null_negative_amount(amount: int):
+    if amount <= 0:
+        raise InvalidAmountError("Err: Amount must be greater than zero.")
