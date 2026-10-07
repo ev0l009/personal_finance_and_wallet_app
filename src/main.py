@@ -52,3 +52,5 @@ except InsufficientFundsError as err:
     print(err)
 else:
     print(finance_tracker.data["transactions"])
+
+print(finance_tracker.data["account_names"])

@@ -3,7 +3,8 @@ import os
 from decimal import Decimal
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any
+# from typing import Dict, List, Any
+from services.models.financetracker import BankData
 
 # Dynamic file positioning relative to user home or project directory
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
@@ -13,11 +14,15 @@ def initialize_storage():
     """Ensures data directory and initial blank schema exists."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if not FILE_PATH.exists():
-        default_state = {"accounts": {}, "transactions": []}
+        default_state: BankData = {
+            "accounts": {}, 
+            "transactions": [],
+            "account_names": {}
+        }
         with open(FILE_PATH, 'w') as f:
             json.dump(default_state, f, indent=4)
 
-def load_data() -> dict:
+def load_data() -> BankData:
     """Reads the JSON file and returns a structured dictionary."""
     initialize_storage()
     try:
@@ -32,26 +37,35 @@ def load_data() -> dict:
         for tx in raw_data.get("transactions", []):
             tx["amount"] = Decimal(tx["amount"])
             tx["timestamp"] = datetime.fromisoformat(tx["timestamp"])
-            
+
         return raw_data
+    
     except (json.JSONDecodeError, KeyError) as e:
         # Graceful fallback or error notification system if file gets physically modified maliciously
         print(f"❌ Storage Error: System file layout corrupt. Details: {e}")
-        return {"accounts": {}, "transactions": []}
+        return {
+            "accounts": {}, 
+            "transactions": [],
+            "account_names": {}
+        }
 
-def save_data(data: dict) -> bool:
+def save_data(data: BankData) -> bool:
     """Safely records state updates using an atomic write pattern."""
     initialize_storage()
     tmp_file_path = FILE_PATH.with_suffix('.json.tmp')
     
     try:
-        # Deep copy/prep dictionary for serialization safely converting Decimals to string
-        serialized_data: Dict[str, Any] = {"accounts": {}, "transactions": []}
+        # Deep copy/prep dictionary for serialization
+        serialized_data: BankData = {
+            "accounts": {}, 
+            "transactions": [],
+            "account_names": {}
+        }
         
         for acc_id, acc in data.get("accounts", {}).items():
             serialized_data["accounts"][acc_id] = {
                 **acc,
-                "balance": str(acc["balance"]),
+                # "balance": str(acc["balance"]),
                 "created_at": acc["created_at"].isoformat() if isinstance(acc["created_at"], datetime) else acc["created_at"]
             }
             
