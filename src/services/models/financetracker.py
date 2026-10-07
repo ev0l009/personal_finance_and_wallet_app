@@ -5,6 +5,7 @@ from services.exceptions import DuplicateAccountNameError
 from typing import Self
 from typing import TypedDict
 
+from services.exceptions import AccountNotFoundError
 
 class TransactionInfo(TypedDict):
     id: str
@@ -26,7 +27,7 @@ class FinanceTracker:
             "account_names": {}
         }
 
-    def register_account(self, account: "Account") -> Self:
+    def register_account(self, account: Account) -> Self:
         normalized_name = account.name.replace(" ", "").lower()
         
         if normalized_name in self.data["account_names"]:
@@ -57,3 +58,8 @@ class FinanceTracker:
                 "--------------------------------------------------\n"
             )
         return account_list
+
+    def get_account_id(self, account_name: str) -> str:
+        if account_name not in self.data["account_names"].keys():
+            raise AccountNotFoundError("Err: Referenced account cannot be found.")
+        return self.data["account_names"][account_name]

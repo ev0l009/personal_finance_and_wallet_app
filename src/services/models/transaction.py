@@ -4,7 +4,7 @@ from enum import Enum
 
 from utils.helpers import generate_prefixed_id
 
-from models.financetracker import FinanceTracker
+from services import context
 
 class TransactionType(Enum):
     DEPOSIT = "deposit"
@@ -21,8 +21,12 @@ class Transaction:
         self.transaction_time = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
  
     def log_transaction(self) -> None:
-        finance_tracker = FinanceTracker()
-        finance_tracker.data["transactions"].append(self.__dict__)
+        #  Ensure the tracker has been initialized
+        if context.active_tracker is None:
+            raise RuntimeError("Context Error: Active Finance Tracker context not found.")
+        
+        #  Pull the database dict directly from your active context instance
+        context.active_tracker.data["transactions"].append(self.__dict__)
 
 class Deposit(Transaction):
     def __init__(self, amount: int) -> None:

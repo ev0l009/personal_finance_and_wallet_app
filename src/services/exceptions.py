@@ -15,3 +15,6 @@ class InsufficientFundsError(TransactionException):
 
 class InvalidAmountError(TransactionException):
     pass
+
+class AccountNotFoundError(FinanceTrackerException):
+    pass

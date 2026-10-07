@@ -2,6 +2,7 @@ from enum import Enum
 
 from utils.validators import check_account_name
 from utils.validators import require_no_null_negative_amount
+
 from utils.helpers import generate_prefixed_id
 
 import datetime
@@ -10,9 +11,12 @@ from typing import Self
 
 from services.exceptions import InsufficientFundsError
 
-from models.transaction import Withdrawal
-from models.transaction import Deposit
-from models.transaction import Transfer
+
+from services.models.transaction import Withdrawal
+from services.models.transaction import Deposit
+from services.models.transaction import Transfer
+
+from services import context
 
 class AccountStatus(Enum):
     ACTIVE = "active"
@@ -80,7 +84,17 @@ class Account:
         amount: int
     ) -> Self:
         check_account_name(recipient_acc, "Account Name")
+        
+        # 3. Ensure the tracker is registered and grab it dynamically
+        if context.active_tracker is None:
+            raise RuntimeError("Application Error: Active Finance Tracker context not found.")
+            
+        recipient_id = context.active_tracker.get_account_id(recipient_acc)
+        
         require_no_null_negative_amount(amount)
         if amount > self.balance:
             raise InsufficientFundsError("Err: Account balance is lower than transaction amount")
+            
+        transaction = Transfer(amount, self.id, recipient_id)
+        transaction.log_transaction()
         return self

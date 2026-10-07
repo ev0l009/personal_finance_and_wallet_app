@@ -22,7 +22,7 @@ def check_account_name(name: str, field: str):
 
 def require_no_null_negative_amount(amount: int):
     if amount <= 0:
-        raise InvalidAmountError("Err: Amount must be greater than zero.")
-
-def check_account_exists(account_name: str):
+        raise InvalidAmountError("Err: Amount must be greater than zero.")    
     
+
+# def check_account_is_activie(account_name: str):
