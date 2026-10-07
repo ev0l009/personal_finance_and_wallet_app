@@ -1,2 +1,50 @@
+import datetime
+
+from enum import Enum
+
+from typing import Self
+
+from utils.helpers import generate_prefixed_id
+
+# from models.financetracker import FinanceTracker
+
+class TransactionType(Enum):
+    DEPOSIT = "deposit"
+    WITHDRAWAL = "withdrawal"
+    TRANSFER = "transfer"
+
 class Transaction:
-    pass
+    def __init__(
+        self, 
+        amount: int 
+    ) -> None:
+        self.id = generate_prefixed_id("trx")
+        self.amount = amount
+        self.transaction_time = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+    # def log_transaction(self) -> Self:
+    #     finance_tracker = FinanceTracker()
+    #     finance_tracker.data["transactions"].append()
+    #     return self
+
+class Withdrawal(Transaction):
+    def __init__(
+        self, 
+        amount: int, 
+        category: str
+    ) -> None:
+        super().__init__(amount)
+        self.transaction_type = TransactionType.WITHDRAWAL.value
+        self.category = category
+
+class Transfer(Transaction):
+    def __init__(
+        self, 
+        amount: int, 
+        source_account_id: str, 
+        destination_account_id: str
+    ) -> None:
+        super().__init__(amount)
+        self.transaction_type = TransactionType.TRANSFER.value
+        self.source_account_id = source_account_id
+        self.destination_account_id = destination_account_id

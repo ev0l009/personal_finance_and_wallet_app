@@ -823,7 +823,7 @@ Financial values are stored as integers representing minor currency units.
             "name": "Main Bank",
             "account_type": "bank",
             "balance": 125050,
-            "is_active": true,
+            "account_status": "active",
             "created_at": "2026-09-23T10:00:00Z"
         }
     },

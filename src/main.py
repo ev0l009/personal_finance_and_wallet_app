@@ -4,10 +4,11 @@ from services.exceptions import InsufficientFundsError
 from services.exceptions import InvalidAmountError
 
 from services.models.account import Account
+from services.models.financetracker import FinanceTracker
+# from services.models.transaction import Transaction
 
 from services.models.account import AccountType
 
-from services.models.financetracker import FinanceTracker
 
 bank_acc = Account("Bank Acc", AccountType.BANK.value)
 cash_acc = Account("Cash Acc", AccountType.CASH.value)
@@ -24,18 +25,24 @@ except InvalidFieldAttributeError as err:
 
 finance_tracker = FinanceTracker()
 
+is_transaction_valid = False
 try:
     (
         bank_acc
             .deposit(10000)
-            .withdraw(100000)
+            .withdraw(500)
     )
 except InvalidAmountError as err:
     print(err)
 except InsufficientFundsError as err:
     print(err)
 else:
-    print(bank_acc)
+    is_transaction_valid = True
+
+# if is_transaction_valid:
+#     try:
+#         transaction = Transaction()
+
 
 
 try:
@@ -50,4 +57,3 @@ except DuplicateAccountNameError as err:
     print(err)
 # else:
 #     print(finance_tracker.accounts_list())
-

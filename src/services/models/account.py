@@ -13,13 +13,15 @@ from services.exceptions import InsufficientFundsError
 class AccountStatus(Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
-    ARCHIVED = "archived"
-
+    # ARCHIVED = "archived"
+ 
 class AccountType(Enum):
     BANK = "bank"
     SAVINGS = "savings"
     CASH = "cash"
     MOBILE = "mobile"
+
+
 
 class Account:
     def __init__(

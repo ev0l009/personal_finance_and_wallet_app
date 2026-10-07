@@ -1,21 +1,28 @@
 from services.models.account import Account
-from services.models.transaction import Transaction
 
 from services.exceptions import DuplicateAccountNameError
 
 from typing import Self
 from typing import TypedDict
 
+
+class TransactionInfo(TypedDict):
+    id: str
+    transaction_type: str
+    amount: int
+    timestamp: str
+
 class BankData(TypedDict):
     accounts: dict[str, Account]
-    transactions: dict[str, Transaction]
+    transactions: list[TransactionInfo]
     account_names: dict[str, str]
+
 
 class FinanceTracker:
     def __init__(self):
         self.data: BankData = {
             "accounts": {},
-            "transactions": {},
+            "transactions": [],
             "account_names": {}
         }
 
@@ -51,3 +58,6 @@ class FinanceTracker:
             )
         return account_list
 
+    # def log_transaction(self, transaction: "Transaction") -> Self:
+    #     self.data["transactions"][transaction.id] = 
+    #     return self
