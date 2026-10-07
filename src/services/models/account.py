@@ -10,6 +10,10 @@ from typing import Self
 
 from services.exceptions import InsufficientFundsError
 
+from models.transaction import Withdrawal
+from models.transaction import Deposit
+from models.transaction import Transfer
+
 class AccountStatus(Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
@@ -20,8 +24,6 @@ class AccountType(Enum):
     SAVINGS = "savings"
     CASH = "cash"
     MOBILE = "mobile"
-
-
 
 class Account:
     def __init__(
@@ -56,16 +58,29 @@ class Account:
         self.account_status = AccountStatus.INACTIVE.value
         return self
 
-    def withdraw(self, amount: int) -> Self:
+    def withdraw(self, amount: int, category: str) -> Self:
         require_no_null_negative_amount(amount)
         if amount > self.balance:
             raise InsufficientFundsError("Err: Account balance is lower than transaction amount")
         self.balance -= amount
+        transaction = Withdrawal(amount, category)
+        transaction.log_transaction()
         return self
     
     def deposit(self, amount: int) -> Self:
         require_no_null_negative_amount(amount)
         self.balance += amount
+        transaction = Deposit(amount)
+        transaction.log_transaction()
         return self
     
-    # def transfer
+    def transfer(
+        self, 
+        recipient_acc: str, 
+        amount: int
+    ) -> Self:
+        check_account_name(recipient_acc, "Account Name")
+        require_no_null_negative_amount(amount)
+        if amount > self.balance:
+            raise InsufficientFundsError("Err: Account balance is lower than transaction amount")
+        return self

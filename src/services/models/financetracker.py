@@ -17,7 +17,7 @@ class BankData(TypedDict):
     transactions: list[TransactionInfo]
     account_names: dict[str, str]
 
-
+ 
 class FinanceTracker:
     def __init__(self):
         self.data: BankData = {
@@ -57,7 +57,3 @@ class FinanceTracker:
                 "--------------------------------------------------\n"
             )
         return account_list
-
-    # def log_transaction(self, transaction: "Transaction") -> Self:
-    #     self.data["transactions"][transaction.id] = 
-    #     return self
