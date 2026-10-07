@@ -37,16 +37,18 @@ try:
 except DuplicateAccountNameError as err:
     print(err)
 else:
-    print(finance_tracker.accounts_list())
+    print(finance_tracker.data["account_names"])
 
 try:
     (
         bank_acc
             .deposit(10000)
+            .withdraw(2000, "Test")
+            .transfer("Cash Acc",5000)
     )
 except InvalidAmountError as err:
     print(err)
 except InsufficientFundsError as err:
     print(err)
 else:
-    print(finance_tracker.data)
+    print(finance_tracker.data["transactions"])

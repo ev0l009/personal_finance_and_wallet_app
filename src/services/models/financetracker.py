@@ -28,7 +28,7 @@ class FinanceTracker:
         }
 
     def register_account(self, account: Account) -> Self:
-        normalized_name = account.name.replace(" ", "").lower()
+        normalized_name = account.name.replace(" ", "_").lower()
         
         if normalized_name in self.data["account_names"]:
             raise DuplicateAccountNameError("Account name already exists")
@@ -60,6 +60,8 @@ class FinanceTracker:
         return account_list
 
     def get_account_id(self, account_name: str) -> str:
-        if account_name not in self.data["account_names"].keys():
+        account_names: list[str] = list(self.data["account_names"])
+        normalized_account_name = account_name.replace(" ", "_").lower()
+        if normalized_account_name not in account_names:
             raise AccountNotFoundError("Err: Referenced account cannot be found.")
-        return self.data["account_names"][account_name]
+        return self.data["account_names"][normalized_account_name]

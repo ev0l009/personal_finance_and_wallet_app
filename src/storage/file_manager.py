@@ -1,0 +1,77 @@
+import json
+import os
+from decimal import Decimal
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Any
+
+# Dynamic file positioning relative to user home or project directory
+DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+FILE_PATH = DATA_DIR / "ledger.json"
+
+def initialize_storage():
+    """Ensures data directory and initial blank schema exists."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not FILE_PATH.exists():
+        default_state = {"accounts": {}, "transactions": []}
+        with open(FILE_PATH, 'w') as f:
+            json.dump(default_state, f, indent=4)
+
+def load_data() -> dict:
+    """Reads the JSON file and returns a structured dictionary."""
+    initialize_storage()
+    try:
+        with open(FILE_PATH, 'r') as f:
+            raw_data = json.load(f)
+            
+        # Pipeline Conversion: Convert string representations back to Decimal & Datetime
+        for acc_id, acc in raw_data.get("accounts", {}).items():
+            acc["balance"] = Decimal(acc["balance"])
+            acc["created_at"] = datetime.fromisoformat(acc["created_at"])
+            
+        for tx in raw_data.get("transactions", []):
+            tx["amount"] = Decimal(tx["amount"])
+            tx["timestamp"] = datetime.fromisoformat(tx["timestamp"])
+            
+        return raw_data
+    except (json.JSONDecodeError, KeyError) as e:
+        # Graceful fallback or error notification system if file gets physically modified maliciously
+        print(f"❌ Storage Error: System file layout corrupt. Details: {e}")
+        return {"accounts": {}, "transactions": []}
+
+def save_data(data: dict) -> bool:
+    """Safely records state updates using an atomic write pattern."""
+    initialize_storage()
+    tmp_file_path = FILE_PATH.with_suffix('.json.tmp')
+    
+    try:
+        # Deep copy/prep dictionary for serialization safely converting Decimals to string
+        serialized_data: Dict[str, Any] = {"accounts": {}, "transactions": []}
+        
+        for acc_id, acc in data.get("accounts", {}).items():
+            serialized_data["accounts"][acc_id] = {
+                **acc,
+                "balance": str(acc["balance"]),
+                "created_at": acc["created_at"].isoformat() if isinstance(acc["created_at"], datetime) else acc["created_at"]
+            }
+            
+        for tx in data.get("transactions", []):
+            serialized_data["transactions"].append({
+                **tx,
+                "amount": str(tx["amount"]),
+                "timestamp": tx["timestamp"].isoformat() if isinstance(tx["timestamp"], datetime) else tx["timestamp"]
+            })
+
+        # Step 1: Write to temporary file
+        with open(tmp_file_path, 'w') as f:
+            json.dump(serialized_data, f, indent=4)
+            
+        # Step 2: Atomic Swap (instantly overwrites old file, zero chance of halfway corrupt file)
+        os.replace(tmp_file_path, FILE_PATH)
+        return True
+        
+    except Exception as e:
+        if tmp_file_path.exists():
+            os.remove(tmp_file_path)
+        print(f"❌ Hardware IO Write Failure: {e}")
+        return False
