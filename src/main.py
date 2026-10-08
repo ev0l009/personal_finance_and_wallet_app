@@ -2,6 +2,7 @@
 from services.exceptions import DuplicateAccountNameError
 from services.exceptions import InsufficientFundsError
 from services.exceptions import InvalidAmountError
+from services.exceptions import DatabaseError
 
 from services import context
 
@@ -36,8 +37,8 @@ try:
     )
 except DuplicateAccountNameError as err:
     print(err)
-else:
-    print(finance_tracker.data["account_names"])
+# else:
+#     print(finance_tracker.data["account_names"])
 
 try:
     (
@@ -50,7 +51,11 @@ except InvalidAmountError as err:
     print(err)
 except InsufficientFundsError as err:
     print(err)
-else:
-    print(finance_tracker.data["transactions"])
+# else:
+#     print(finance_tracker.data["transactions"])
 
-print(finance_tracker.data["account_names"])
+try:
+    finance_tracker.save_data()
+except DatabaseError as err:
+    print(err)
+

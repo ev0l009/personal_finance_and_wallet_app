@@ -7,6 +7,8 @@ from typing import TypedDict
 
 from services.exceptions import AccountNotFoundError
 
+from storage.file_manager import load_data, save_data
+
 class TransactionInfo(TypedDict):
     id: str
     transaction_type: str
@@ -26,6 +28,12 @@ class FinanceTracker:
             "transactions": [],
             "account_names": {}
         }
+
+    def load_data(self):
+        self.data = load_data()
+
+    def save_data(self):
+        save_data(self.data)
 
     def register_account(self, account: Account) -> Self:
         normalized_name = account.name.replace(" ", "_").lower()

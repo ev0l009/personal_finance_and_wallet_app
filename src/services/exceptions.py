@@ -18,3 +18,6 @@ class InvalidAmountError(TransactionException):
 
 class AccountNotFoundError(FinanceTrackerException):
     pass
+
+class DatabaseError(FinanceTrackerException):
+    pass

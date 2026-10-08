@@ -18,7 +18,7 @@ class Transaction:
     ) -> None:
         self.id = generate_prefixed_id("trx")
         self.amount = amount
-        self.transaction_time = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        self.timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
  
     def log_transaction(self) -> None:
         #  Ensure the tracker has been initialized
