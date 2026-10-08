@@ -65,12 +65,9 @@ def save_data(data: BankData) -> bool:
             "transactions": [],
             "account_names": {}
         }
-        
+
         for acc_id, acc in data.get("accounts", {}).items():
-            serialized_data["accounts"][acc_id] = {
-                **acc,
-                "created_at": acc["created_at"].isoformat() if isinstance(acc["created_at"], datetime) else acc["created_at"]
-            }
+            serialized_data["accounts"][acc_id] = acc.to_dict()
             
         for tx in data.get("transactions", []):
             serialized_data["transactions"].append({

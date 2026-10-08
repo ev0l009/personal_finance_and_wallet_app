@@ -45,6 +45,17 @@ class Account:
         self.account_status = AccountStatus.ACTIVE.value
         self.created_at = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
+    def to_dict(self):
+        """Converts the Account instance into a serializable dictionary."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "account_type": self.account_type,
+            "balance": self.balance,
+            "account_status": self.account_status,
+            "created_at": self.created_at
+        }
+
     def __str__(self) -> str:
         return (
             "==========================\n"
